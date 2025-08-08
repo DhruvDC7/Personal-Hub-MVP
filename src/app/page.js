@@ -1,29 +1,55 @@
-import { Suspense } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatINR } from '@/lib/format';
+import { api } from '@/lib/fetcher';
 import Card from '@/components/Card';
 import PageHeader from '@/components/PageHeader';
 import Table from '@/components/Table';
-import TransactionForm from '@/components/Forms/TransactionForm';
-import Modal from '@/components/Modal';
 
-async function getNetWorth() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/metrics/networth`, { next: { revalidate: 60 } });
-  if (!res.ok) return { netWorth: 0 };
-  return res.json();
+async function fetchDashboardData() {
+  try {
+    const [netWorth, recentTransactions] = await Promise.all([
+      api('/api/metrics/networth').catch(() => ({ netWorth: 0 })),
+      api('/api/transactions?limit=5').catch(() => [])
+    ]);
+    return { netWorth, recentTransactions };
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    return { netWorth: { netWorth: 0 }, recentTransactions: [] };
+  }
 }
 
-async function getRecentTransactions() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/transactions?limit=5`, { next: { revalidate: 60 } });
-  if (!res.ok) return [];
-  return res.json();
-}
+function Dashboard() {
+  const [netWorth, setNetWorth] = useState({ netWorth: 0 });
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-async function Dashboard() {
-  const [netWorth, recentTransactions] = await Promise.all([
-    getNetWorth(),
-    getRecentTransactions(),
-  ]);
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchDashboardData();
+        setNetWorth(data.netWorth || { netWorth: 0 });
+        setRecentTransactions(data.recentTransactions || []);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   const transactionColumns = [
     { key: 'date', header: 'Date', render: (txn) => new Date(txn.happened_on).toLocaleDateString() },
@@ -112,19 +138,5 @@ async function Dashboard() {
 }
 
 export default function Page() {
-  return (
-    <Suspense fallback={
-      <div className="space-y-6">
-        <div className="animate-pulse h-8 bg-gray-200 rounded w-1/3"></div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
-          ))}
-        </div>
-        <div className="h-64 bg-gray-200 rounded-lg mt-8"></div>
-      </div>
-    }>
-      <Dashboard />
-    </Suspense>
-  );
+  return <Dashboard />;
 }
