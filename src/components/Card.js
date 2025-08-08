@@ -1,3 +1,5 @@
+"use client";
+
 export default function Card({ children, className = '', ...props }) {
   return (
     <div 

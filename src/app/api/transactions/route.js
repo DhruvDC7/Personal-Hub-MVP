@@ -11,20 +11,37 @@ export async function GET(req) {
     const user_id = "demo-user";
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month");
-    const start = month 
-      ? dayjs(`${month}-01`).startOf("month").toDate() 
+    const type = searchParams.get("type");
+    const account = searchParams.get("account");
+    const limit = parseInt(searchParams.get("limit")) || 0;
+    const start = month
+      ? dayjs(`${month}-01`).startOf("month").toDate()
       : dayjs().startOf("month").toDate();
-    const end = month 
-      ? dayjs(`${month}-01`).endOf("month").toDate() 
+    const end = month
+      ? dayjs(`${month}-01`).endOf("month").toDate()
       : dayjs().endOf("month").toDate();
 
-    const items = await db.collection("transactions")
-      .find({ 
-        user_id, 
-        happened_on: { $gte: start, $lte: end } 
-      })
-      .sort({ happened_on: -1 })
-      .toArray();
+    const query = {
+      user_id,
+      happened_on: { $gte: start, $lte: end },
+    };
+    if (type) query.type = type;
+    if (account) {
+      try {
+        query.account_id = new ObjectId(String(account));
+      } catch {
+        return new Response(errorObject("invalid account", 400), {
+          status: 400,
+        });
+      }
+    }
+
+    const cursor = db
+      .collection("transactions")
+      .find(query)
+      .sort({ happened_on: -1 });
+    if (limit) cursor.limit(limit);
+    const items = await cursor.toArray();
       
     return Response.json({ status: true, data: items });
   } catch (e) {
@@ -46,9 +63,18 @@ export async function POST(req) {
     const db = await getDb();
     const user_id = "demo-user";
 
-    const acc = await db.collection("accounts").findOne({ 
-      _id: new ObjectId(value.account_id), 
-      user_id 
+    let accId;
+    try {
+      accId = new ObjectId(value.account_id);
+    } catch {
+      return new Response(errorObject("account_id invalid", 400), {
+        status: 400,
+      });
+    }
+
+    const acc = await db.collection("accounts").findOne({
+      _id: accId,
+      user_id,
     });
     
     if (!acc) {
@@ -60,8 +86,9 @@ export async function POST(req) {
 
     const doc = {
       ...value,
-      account_id: new ObjectId(value.account_id),
+      account_id: accId,
       user_id,
+      happened_on: new Date(value.happened_on),
       created_on: new Date(),
       updated_on: new Date(),
     };
@@ -75,7 +102,7 @@ export async function POST(req) {
     
     if (delta !== 0) {
       await db.collection("accounts").updateOne(
-        { _id: new ObjectId(value.account_id), user_id },
+        { _id: accId, user_id },
         { 
           $inc: { balance: delta }, 
           $set: { updated_on: new Date() } 
@@ -97,17 +124,30 @@ export async function PUT(req) {
   try {
     const body = await req.json();
     const { _id, account_id, type, amount, currency, category, note, tags, happened_on, attachment_ids } = body || {};
-    if (!_id) return new Response(errorObject("_id is required", 403), { status: 403 });
+    if (!_id) return new Response(errorObject("_id is required", 400), { status: 400 });
 
     const db = await getDb();
     const user_id = "demo-user";
-    const txId = new ObjectId(String(_id));
+    let txId;
+    try {
+      txId = new ObjectId(String(_id));
+    } catch {
+      return new Response(errorObject("invalid _id", 400), { status: 400 });
+    }
     const existing = await db.collection("transactions").findOne({ _id: txId, user_id });
     if (!existing) return new Response(errorObject("transaction not found", 404), { status: 404 });
 
     // Prepare update fields
     const set = { updated_on: new Date() };
-    if (account_id) set.account_id = new ObjectId(String(account_id));
+    if (account_id) {
+      try {
+        set.account_id = new ObjectId(String(account_id));
+      } catch {
+        return new Response(errorObject("invalid account_id", 400), {
+          status: 400,
+        });
+      }
+    }
     if (type) set.type = type;
     if (typeof amount === "number") set.amount = amount;
     if (currency) set.currency = currency;
@@ -159,11 +199,17 @@ export async function DELETE(req) {
     const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
     const id = body?._id || searchParams.get("id");
-    if (!id) return new Response(errorObject("id is required", 403), { status: 403 });
+    if (!id) return new Response(errorObject("id is required", 400), { status: 400 });
+
+    let _id;
+    try {
+      _id = new ObjectId(String(id));
+    } catch {
+      return new Response(errorObject("invalid id", 400), { status: 400 });
+    }
 
     const db = await getDb();
     const user_id = "demo-user";
-    const _id = new ObjectId(String(id));
     const tx = await db.collection("transactions").findOne({ _id, user_id });
     if (!tx) return new Response(errorObject("transaction not found", 404), { status: 404 });
 

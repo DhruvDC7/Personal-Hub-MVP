@@ -1,3 +1,4 @@
+import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongo";
 import { accountSchema } from "@/models/schemas";
 import logs from "@/helpers/logs";
@@ -53,10 +54,16 @@ export async function PUT(req) {
     const body = await req.json();
     const { _id, name, type, balance, currency, meta } = body || {};
     if (!_id) {
-      return new Response(errorObject("_id is required", 403), { status: 403 });
+      return new Response(errorObject("_id is required", 400), { status: 400 });
     }
     const db = await getDb();
     const user_id = "demo-user";
+    let objId;
+    try {
+      objId = new ObjectId(String(_id));
+    } catch {
+      return new Response(errorObject("invalid _id", 400), { status: 400 });
+    }
     // Build update doc with only allowed fields
     const set = { updated_on: new Date() };
     if (typeof name === "string") set.name = name;
@@ -66,7 +73,7 @@ export async function PUT(req) {
     if (meta && typeof meta === "object") set.meta = meta;
 
     const r = await db.collection("accounts").updateOne(
-      { _id: new (await import("mongodb")).ObjectId(String(_id)), user_id },
+      { _id: objId, user_id },
       { $set: set }
     );
     if (r.matchedCount === 0) {
@@ -84,17 +91,27 @@ export async function DELETE(req) {
     const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
     const id = body?._id || searchParams.get("id");
-    if (!id) return new Response(errorObject("id is required", 403), { status: 403 });
+    if (!id) return new Response(errorObject("id is required", 400), { status: 400 });
+
+    let _id;
+    try {
+      _id = new ObjectId(String(id));
+    } catch {
+      return new Response(errorObject("invalid id", 400), { status: 400 });
+    }
 
     const db = await getDb();
     const user_id = "demo-user";
-    const { ObjectId } = await import("mongodb");
-    const _id = new ObjectId(String(id));
 
     // Ensure no linked transactions
-    const txCount = await db.collection("transactions").countDocuments({ account_id: _id, user_id });
+    const txCount = await db
+      .collection("transactions")
+      .countDocuments({ account_id: _id, user_id });
     if (txCount > 0) {
-      return new Response(errorObject("cannot delete account with existing transactions", 400), { status: 400 });
+      return new Response(
+        errorObject("Account has transactions", 409),
+        { status: 409 }
+      );
     }
 
     const r = await db.collection("accounts").deleteOne({ _id, user_id });

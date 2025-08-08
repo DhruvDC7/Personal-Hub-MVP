@@ -4,6 +4,7 @@ const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB;
 
 let client;
+let clientPromise;
 let db;
 let indexesCreated = false;
 
@@ -31,15 +32,15 @@ async function ensureIndexes(db) {
 
 export async function getDb() {
   if (db) return db;
-  
-  if (!client) {
+
+  if (!clientPromise) {
     if (!uri) throw new Error("MONGODB_URI is not defined");
     client = new MongoClient(uri, { maxPoolSize: 5 });
+    clientPromise = client.connect();
   }
-  
-  // MongoDB Node.js v6: connect once; no topology/isConnected checks
-  await client.connect();
-  
+
+  await clientPromise;
+
   if (!dbName) throw new Error("MONGODB_DB is not defined");
   db = client.db(dbName);
   

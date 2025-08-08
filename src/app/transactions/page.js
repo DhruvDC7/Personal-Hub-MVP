@@ -60,6 +60,7 @@ export default function TransactionsPage() {
       await api(`/api/transactions/${transactionId}`, { method: 'DELETE' });
       showToast({ type: 'success', message: 'Transaction deleted successfully' });
       fetchTransactions();
+      router.refresh();
     } catch (error) {
       console.error('Error deleting transaction:', error);
       showToast({ 
@@ -83,6 +84,7 @@ export default function TransactionsPage() {
     setIsModalOpen(false);
     setEditingTransaction(null);
     fetchTransactions();
+    router.refresh();
   };
 
   // Calculate totals

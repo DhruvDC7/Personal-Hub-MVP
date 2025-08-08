@@ -69,7 +69,7 @@ export default function SettingsPage() {
           <h3 className="text-lg font-medium leading-6 text-yellow-800">Coming Soon</h3>
           <div className="text-sm text-yellow-700">
             <p className="mb-2">
-              We're working on adding more settings and customization options, including:
+              We&apos;re working on adding more settings and customization options, including:
             </p>
             <ul className="list-disc pl-5 space-y-1">
               <li>User authentication</li>
