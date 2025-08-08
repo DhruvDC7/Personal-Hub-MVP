@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
 
@@ -11,6 +12,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
     balance: initialData.balance || 0,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
 
   const accountTypes = [
     { value: 'bank', label: 'Bank Account' },
@@ -32,12 +34,12 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
     setIsSubmitting(true);
 
     try {
-      const url = initialData._id 
+      const url = initialData._id
         ? `/api/accounts/${initialData._id}`
         : '/api/accounts';
-      
+
       const method = initialData._id ? 'PUT' : 'POST';
-      
+
       await api(url, {
         method,
         body: formData,
@@ -47,7 +49,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
         type: 'success',
         message: `Account ${initialData._id ? 'updated' : 'created'} successfully`,
       });
-      
+      router.refresh();
       if (onSuccess) onSuccess();
     } catch (error) {
       console.error('Error saving account:', error);

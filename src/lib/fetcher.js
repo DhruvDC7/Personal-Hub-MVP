@@ -2,7 +2,8 @@ import { showToast } from './ui';
 
 export async function api(path, { method = 'GET', body, headers = {} } = {}) {
   try {
-    const res = await fetch(`/api${path}`, {
+    const url = path.startsWith('http') || path.startsWith('/api') ? path : `/api${path}`;
+    const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json', ...headers },
       body: body ? JSON.stringify(body) : undefined,
@@ -14,7 +15,7 @@ export async function api(path, { method = 'GET', body, headers = {} } = {}) {
       throw new Error(data.message || data.error || 'Something went wrong');
     }
 
-    return data;
+    return data.data ?? data;
   } catch (error) {
     console.error('API Error:', error);
     showToast({

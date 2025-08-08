@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
 import { formatDateShort } from '@/lib/format';
@@ -17,6 +18,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   const [accounts, setAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
 
   const transactionTypes = [
     { value: 'expense', label: 'Expense' },
@@ -71,12 +73,12 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     setIsSubmitting(true);
 
     try {
-      const url = initialData._id 
+      const url = initialData._id
         ? `/api/transactions/${initialData._id}`
         : '/api/transactions';
-      
+
       const method = initialData._id ? 'PUT' : 'POST';
-      
+
       await api(url, {
         method,
         body: {
@@ -89,7 +91,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         type: 'success',
         message: `Transaction ${initialData._id ? 'updated' : 'added'} successfully`,
       });
-      
+      router.refresh();
       if (onSuccess) onSuccess();
     } catch (error) {
       console.error('Error saving transaction:', error);

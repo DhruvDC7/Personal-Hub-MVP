@@ -1,3 +1,5 @@
+"use client";
+
 export default function PageHeader({ title, actions }) {
   return (
     <div className="mb-6 flex flex-col justify-between sm:flex-row sm:items-center">

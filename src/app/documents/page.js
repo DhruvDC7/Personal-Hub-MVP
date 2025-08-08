@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/format';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
@@ -14,6 +15,7 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const router = useRouter();
 
   const fetchDocuments = async () => {
     setIsLoading(true);
@@ -36,6 +38,7 @@ export default function DocumentsPage() {
       await api(`/api/documents/${documentId}`, { method: 'DELETE' });
       showToast({ type: 'success', message: 'Document deleted successfully' });
       fetchDocuments();
+      router.refresh();
     } catch (error) {
       console.error('Error deleting document:', error);
       showToast({ 
@@ -48,6 +51,7 @@ export default function DocumentsPage() {
   const handleUploadSuccess = () => {
     setIsUploadModalOpen(false);
     fetchDocuments();
+    router.refresh();
   };
 
   useEffect(() => {

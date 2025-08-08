@@ -1,3 +1,5 @@
+"use client";
+
 export default function Table({ columns, data, className = '', emptyState = 'No data available' }) {
   return (
     <div className="overflow-x-auto">
