@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { formatINR } from '@/lib/format';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
@@ -16,6 +17,7 @@ export default function AccountsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
+  const router = useRouter();
 
   const fetchAccounts = async () => {
     try {
@@ -37,6 +39,7 @@ export default function AccountsPage() {
       await api(`/api/accounts/${accountId}`, { method: 'DELETE' });
       showToast({ type: 'success', message: 'Account deleted successfully' });
       fetchAccounts();
+      router.refresh();
     } catch (error) {
       console.error('Error deleting account:', error);
       showToast({ 
@@ -50,6 +53,7 @@ export default function AccountsPage() {
     setIsModalOpen(false);
     setEditingAccount(null);
     fetchAccounts();
+    router.refresh();
   };
 
   const columns = [

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { api, uploadFile } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
 
@@ -9,6 +10,7 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
   const [title, setTitle] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const router = useRouter();
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -36,8 +38,7 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
     setIsUploading(true);
 
     try {
-      // Step 1: Get presigned URL from our API
-      const { url, fields, documentId } = await api('/api/documents/presign', {
+      const { uploadUrl } = await api('/api/documents', {
         method: 'POST',
         body: {
           filename: file.name,
@@ -46,19 +47,13 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
         },
       });
 
-      // Step 2: Upload file to S3 using presigned URL
-      await uploadFile(url, file);
-
-      // Step 3: Confirm upload with our API
-      await api(`/api/documents/${documentId}/complete`, {
-        method: 'POST',
-      });
+      await uploadFile(uploadUrl, file);
 
       showToast({
         type: 'success',
         message: 'Document uploaded successfully',
       });
-
+      router.refresh();
       if (onSuccess) onSuccess();
     } catch (error) {
       console.error('Error uploading document:', error);
