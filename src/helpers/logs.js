@@ -12,7 +12,7 @@ export default async function logs(request, message, status, payload) {
       headers: Object.fromEntries(new Headers(request.headers).entries()),
       created_on: new Date(),
     });
-  } catch (e) {
+  } catch {
     // swallow
   }
 }
