@@ -4,8 +4,6 @@ import { formatINR } from '@/lib/format';
 import Card from '@/components/Card';
 import PageHeader from '@/components/PageHeader';
 import Table from '@/components/Table';
-import TransactionForm from '@/components/Forms/TransactionForm';
-import Modal from '@/components/Modal';
 
 async function getNetWorth() {
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/metrics/networth`, { next: { revalidate: 60 } });

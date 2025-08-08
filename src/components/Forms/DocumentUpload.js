@@ -37,7 +37,7 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
 
     try {
       // Step 1: Get presigned URL from our API
-      const { url, fields, documentId } = await api('/api/documents/presign', {
+      const { url, documentId } = await api('/api/documents/presign', {
         method: 'POST',
         body: {
           filename: file.name,
@@ -69,10 +69,6 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
   };
 
   return (

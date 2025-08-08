@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
-import { formatDateShort } from '@/lib/format';
 
 export default function TransactionForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
@@ -43,7 +42,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       try {
         const data = await api('/api/accounts');
         setAccounts(data);
-        
+
         // If no account is selected, select the first one by default
         if (!formData.account && data.length > 0) {
           setFormData(prev => ({ ...prev, account: data[0]._id }));
@@ -56,7 +55,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     };
 
     fetchAccounts();
-  }, []);
+  }, [formData.account]);
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;

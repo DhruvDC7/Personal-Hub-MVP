@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { formatINR, formatDate, monthParam } from '@/lib/format';
 import { api } from '@/lib/fetcher';
@@ -26,13 +26,13 @@ export default function TransactionsPage() {
   const type = searchParams.get('type') || '';
   const account = searchParams.get('account') || '';
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ month });
       if (type) params.set('type', type);
       if (account) params.set('account', account);
-      
+
       const data = await api(`/api/transactions?${params.toString()}`);
       setTransactions(data);
     } catch (error) {
@@ -40,16 +40,16 @@ export default function TransactionsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [month, type, account]);
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     try {
       const data = await api('/api/accounts');
       setAccounts(data);
     } catch (error) {
       console.error('Error fetching accounts:', error);
     }
-  };
+  }, []);
 
   const handleDelete = async (transactionId) => {
     if (!window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
@@ -152,7 +152,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     fetchTransactions();
     fetchAccounts();
-  }, [month, type, account]);
+  }, [fetchTransactions, fetchAccounts]);
 
   return (
     <div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { formatINR } from '@/lib/format';
 import { api } from '@/lib/fetcher';
@@ -17,7 +17,7 @@ export default function AccountsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     try {
       const data = await api('/api/accounts');
       setAccounts(data);
@@ -26,7 +26,7 @@ export default function AccountsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const handleDelete = async (accountId) => {
     if (!window.confirm('Are you sure you want to delete this account? This action cannot be undone.')) {
@@ -105,9 +105,9 @@ export default function AccountsPage() {
   ];
 
   // Initial data fetch
-  useState(() => {
+  useEffect(() => {
     fetchAccounts();
-  }, []);
+  }, [fetchAccounts]);
 
   return (
     <div>
