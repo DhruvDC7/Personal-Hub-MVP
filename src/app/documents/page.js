@@ -67,7 +67,7 @@ export default function DocumentsPage() {
           href={doc.url} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-indigo-600 hover:text-indigo-900"
+          className="text-sky-400 hover:text-sky-500"
         >
           {doc.title}
         </a>
@@ -101,13 +101,13 @@ export default function DocumentsPage() {
             href={doc.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-600 hover:text-indigo-900"
+            className="text-sky-400 hover:text-sky-500"
           >
             View
           </a>
           <button
             onClick={() => handleDelete(doc._id)}
-            className="text-red-600 hover:text-red-900"
+            className="text-red-600 hover:text-red-500"
           >
             Delete
           </button>
@@ -123,7 +123,7 @@ export default function DocumentsPage() {
         actions={
           <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
           >
             Upload Document
           </button>
@@ -133,7 +133,7 @@ export default function DocumentsPage() {
       <Card>
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-400"></div>
           </div>
         ) : (
           <Table 
@@ -141,10 +141,10 @@ export default function DocumentsPage() {
             data={documents} 
             emptyState={
               <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">No documents found</p>
+                <p className="text-slate-400 mb-4">No documents found</p>
                 <button
                   onClick={() => setIsUploadModalOpen(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
                 >
                   Upload Your First Document
                 </button>

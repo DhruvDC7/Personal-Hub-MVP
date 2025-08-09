@@ -6,6 +6,11 @@ import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
 
 export async function GET(req) {
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substring(2, 9);
+  
+  console.log(`[API] [${requestId}] GET /api/transactions - Starting`);
+  
   try {
     const db = await getDb();
     const user_id = "demo-user";
@@ -43,18 +48,28 @@ export async function GET(req) {
     if (limit) cursor.limit(limit);
     const items = await cursor.toArray();
       
+    console.log(`[API] [${requestId}] GET /api/transactions - Success (${Date.now() - startTime}ms) - Found ${items.length} items`);
     return Response.json({ status: true, data: items });
   } catch (e) {
-    await logs(req, e?.message || "GET /transactions failed", 500);
+    const errorMsg = e?.message || "GET /transactions failed";
+    console.error(`[API] [${requestId}] GET /api/transactions - Error (${Date.now() - startTime}ms):`, errorMsg);
+    console.error(e);
+    await logs(req, errorMsg, 500);
     return new Response(errorObject("Internal error", 500), { status: 500 });
   }
 }
 
 export async function POST(req) {
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substring(2, 9);
+  
+  console.log(`[API] [${requestId}] POST /api/transactions - Starting`);
+  
   const raw = await req.json();
   const { error, value } = transactionSchema.validate(raw, { abortEarly: false });
   
   if (error) {
+    console.error(`[API] [${requestId}] POST /api/transactions - Validation failed (${Date.now() - startTime}ms):`, error.message);
     await logs(req, error.message, 403, raw);
     return new Response(errorObject(error.message, 403), { status: 403 });
   }
@@ -94,8 +109,10 @@ export async function POST(req) {
     };
     
     const r = await db.collection("transactions").insertOne(doc);
+    console.log(`[API] [${requestId}] POST /api/transactions - Created transaction ${r.insertedId} (${Date.now() - startTime}ms)`);
 
     // Update account balance
+    console.log(`[API] [${requestId}] POST /api/transactions - Updating account balance, delta: ${delta}`);
     let delta = 0;
     if (value.type === "expense") delta = -value.amount;
     if (value.type === "income") delta = value.amount;
@@ -115,12 +132,20 @@ export async function POST(req) {
       { status: 201 }
     );
   } catch (e) {
-    await logs(req, e?.message || "POST /transactions failed", 500, raw);
+    const errorMsg = e?.message || "POST /transactions failed";
+    console.error(`[API] [${requestId}] POST /api/transactions - Error (${Date.now() - startTime}ms):`, errorMsg);
+    console.error(e);
+    await logs(req, errorMsg, 500, raw);
     return new Response(errorObject("Internal error", 500), { status: 500 });
   }
 }
 
 export async function PUT(req) {
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substring(2, 9);
+  
+  console.log(`[API] [${requestId}] PUT /api/transactions - Starting`);
+  
   try {
     const body = await req.json();
     const { _id, account_id, type, amount, currency, category, note, tags, happened_on, attachment_ids } = body || {};
@@ -187,14 +212,23 @@ export async function PUT(req) {
     if (ops.length) await Promise.all(ops);
 
     await db.collection("transactions").updateOne({ _id: txId, user_id }, { $set: set });
+    console.log(`[API] [${requestId}] PUT /api/transactions - Updated transaction ${_id} (${Date.now() - startTime}ms)`);
     return Response.json({ status: true, data: { _id, ...set } });
   } catch (e) {
-    await logs(req, e?.message || "PUT /transactions failed", 500);
+    const errorMsg = e?.message || "PUT /transactions failed";
+    console.error(`[API] [${requestId}] PUT /api/transactions - Error (${Date.now() - startTime}ms):`, errorMsg);
+    console.error(e);
+    await logs(req, errorMsg, 500);
     return new Response(errorObject("Internal error", 500), { status: 500 });
   }
 }
 
 export async function DELETE(req) {
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substring(2, 9);
+  
+  console.log(`[API] [${requestId}] DELETE /api/transactions - Starting`);
+  
   try {
     const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
@@ -223,9 +257,13 @@ export async function DELETE(req) {
     }
 
     await db.collection("transactions").deleteOne({ _id, user_id });
+    console.log(`[API] [${requestId}] DELETE /api/transactions - Deleted transaction ${id} (${Date.now() - startTime}ms)`);
     return Response.json({ status: true, data: { _id: id } });
   } catch (e) {
-    await logs(req, e?.message || "DELETE /transactions failed", 500);
+    const errorMsg = e?.message || "DELETE /transactions failed";
+    console.error(`[API] [${requestId}] DELETE /api/transactions - Error (${Date.now() - startTime}ms):`, errorMsg);
+    console.error(e);
+    await logs(req, errorMsg, 500);
     return new Response(errorObject("Internal error", 500), { status: 500 });
   }
 }

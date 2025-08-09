@@ -15,21 +15,21 @@ export default function SettingsPage() {
       <Card>
         <div className="space-y-6">
           <div>
-            <h3 className="text-lg font-medium leading-6 text-gray-900">Account Information</h3>
-            <p className="mt-1 text-sm text-gray-500">Your personal account settings</p>
+            <h3 className="text-lg font-medium leading-6 text-slate-50">Account Information</h3>
+            <p className="mt-1 text-sm text-slate-400">Your personal account settings</p>
           </div>
           
-          <div className="border-t border-gray-200">
-            <dl className="divide-y divide-gray-200">
+          <div className="border-t border-slate-700">
+            <dl className="divide-y divide-slate-700">
               <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                <dt className="text-sm font-medium text-gray-500">User ID</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                <dt className="text-sm font-medium text-slate-400">User ID</dt>
+                <dd className="mt-1 text-sm text-slate-50 sm:col-span-2 sm:mt-0">
                   {settings.user}
                 </dd>
               </div>
               <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                <dt className="text-sm font-medium text-gray-500">Email</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                <dt className="text-sm font-medium text-slate-400">Email</dt>
+                <dd className="mt-1 text-sm text-slate-50 sm:col-span-2 sm:mt-0">
                   {settings.user}@example.com
                 </dd>
               </div>
@@ -41,21 +41,21 @@ export default function SettingsPage() {
       <Card className="mt-6">
         <div className="space-y-6">
           <div>
-            <h3 className="text-lg font-medium leading-6 text-gray-900">Preferences</h3>
-            <p className="mt-1 text-sm text-gray-500">Customize your application preferences</p>
+            <h3 className="text-lg font-medium leading-6 text-slate-50">Preferences</h3>
+            <p className="mt-1 text-sm text-slate-400">Customize your application preferences</p>
           </div>
           
-          <div className="border-t border-gray-200">
-            <dl className="divide-y divide-gray-200">
+          <div className="border-t border-slate-700">
+            <dl className="divide-y divide-slate-700">
               <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                <dt className="text-sm font-medium text-gray-500">Currency</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                <dt className="text-sm font-medium text-slate-400">Currency</dt>
+                <dd className="mt-1 text-sm text-slate-50 sm:col-span-2 sm:mt-0">
                   {settings.currency}
                 </dd>
               </div>
               <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
-                <dt className="text-sm font-medium text-gray-500">Timezone</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">
+                <dt className="text-sm font-medium text-slate-400">Timezone</dt>
+                <dd className="mt-1 text-sm text-slate-50 sm:col-span-2 sm:mt-0">
                   {settings.timezone}
                 </dd>
               </div>
@@ -64,10 +64,10 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <Card className="mt-6 bg-yellow-50 border-yellow-200">
+      <Card className="mt-6 bg-slate-800 border-slate-700">
         <div className="space-y-4">
-          <h3 className="text-lg font-medium leading-6 text-yellow-800">Coming Soon</h3>
-          <div className="text-sm text-yellow-700">
+          <h3 className="text-lg font-medium leading-6 text-sky-400">Coming Soon</h3>
+          <div className="text-sm text-slate-50">
             <p className="mb-2">
               We&apos;re working on adding more settings and customization options, including:
             </p>
