@@ -162,6 +162,7 @@ export default function TransactionsPage() {
         title="Transactions"
         actions={
           <button
+            type="button"
             onClick={() => {
               setEditingTransaction(null);
               setIsModalOpen(true);
@@ -253,7 +254,7 @@ export default function TransactionsPage() {
       </Card>
 
       <Modal
-        isOpen={isModalOpen}
+        open={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setEditingTransaction(null);
