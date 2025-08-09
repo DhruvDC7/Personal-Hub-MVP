@@ -122,6 +122,7 @@ export default function DocumentsPage() {
         title="Documents"
         actions={
           <button
+            type="button"
             onClick={() => setIsUploadModalOpen(true)}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
           >
@@ -143,6 +144,7 @@ export default function DocumentsPage() {
               <div className="text-center py-8">
                 <p className="text-slate-400 mb-4">No documents found</p>
                 <button
+                  type="button"
                   onClick={() => setIsUploadModalOpen(true)}
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
                 >
@@ -155,7 +157,7 @@ export default function DocumentsPage() {
       </Card>
 
       <Modal
-        isOpen={isUploadModalOpen}
+        open={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         title="Upload Document"
       >

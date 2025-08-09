@@ -119,6 +119,7 @@ export default function AccountsPage() {
         title="Accounts"
         actions={
           <button
+            type="button"
             onClick={() => {
               setEditingAccount(null);
               setIsModalOpen(true);
@@ -155,7 +156,7 @@ export default function AccountsPage() {
       </Card>
 
       <Modal
-        isOpen={isModalOpen}
+        open={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setEditingAccount(null);

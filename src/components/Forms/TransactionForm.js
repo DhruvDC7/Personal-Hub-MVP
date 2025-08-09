@@ -106,7 +106,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="type" className="block text-sm font-medium text-slate-400">
+        <label htmlFor="type" className="block text-sm font-medium text-slate-300">
           Transaction Type
         </label>
         <select
@@ -114,7 +114,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           name="type"
           value={formData.type}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 py-2 pl-3 pr-10 text-base focus:border-sky-400 focus:outline-none focus:ring-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-sm"
           required
         >
           {transactionTypes.map((type) => (
@@ -126,7 +126,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       </div>
 
       <div>
-        <label htmlFor="account" className="block text-sm font-medium text-slate-400">
+        <label htmlFor="account" className="block text-sm font-medium text-slate-300">
           Account
         </label>
         <select
@@ -134,7 +134,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           name="account"
           value={formData.account}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 py-2 pl-3 pr-10 text-base focus:border-sky-400 focus:outline-none focus:ring-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-sm"
           required
         >
           {accounts.map((account) => (
@@ -146,12 +146,12 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       </div>
 
       <div>
-        <label htmlFor="amount" className="block text-sm font-medium text-slate-400">
+        <label htmlFor="amount" className="block text-sm font-medium text-slate-300">
           Amount
         </label>
         <div className="mt-1 relative rounded-md shadow-sm">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="text-slate-400 sm:text-sm">
+            <span className="text-slate-300 sm:text-sm">
               {formData.type === 'expense' ? '-' : '+'} ₹
             </span>
           </div>
@@ -163,14 +163,14 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
             name="amount"
             value={formData.amount}
             onChange={handleChange}
-            className="pl-12 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:ring-sky-400 sm:text-sm"
+            className="pl-12 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
             required
           />
         </div>
       </div>
 
       <div>
-        <label htmlFor="category" className="block text-sm font-medium text-slate-400">
+        <label htmlFor="category" className="block text-sm font-medium text-slate-300">
           Category
         </label>
         <select
@@ -178,7 +178,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           name="category"
           value={formData.category}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 py-2 pl-3 pr-10 text-base focus:border-sky-400 focus:outline-none focus:ring-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-sm"
           required
         >
           <option value="">Select a category</option>
@@ -191,7 +191,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       </div>
 
       <div>
-        <label htmlFor="happened_on" className="block text-sm font-medium text-slate-400">
+        <label htmlFor="happened_on" className="block text-sm font-medium text-slate-300">
           Date & Time
         </label>
         <input
@@ -200,13 +200,13 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           name="happened_on"
           value={formData.happened_on}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:ring-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
           required
         />
       </div>
 
       <div>
-        <label htmlFor="note" className="block text-sm font-medium text-slate-400">
+        <label htmlFor="note" className="block text-sm font-medium text-slate-300">
           Note (Optional)
         </label>
         <textarea
@@ -215,7 +215,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           rows={3}
           value={formData.note}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:ring-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
         />
       </div>
 

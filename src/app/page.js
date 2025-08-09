@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import AddTransactionButton from '@/components/AddTransactionButton';
 import { formatINR } from '@/lib/format';
 import { api } from '@/lib/fetcher';
 import Card from '@/components/Card';
@@ -69,14 +70,7 @@ function Dashboard() {
     <div>
       <PageHeader 
         title="Dashboard"
-        actions={
-          <Link 
-            href="/transactions/new" 
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
-          >
-            Add Transaction
-          </Link>
-        }
+        actions={<AddTransactionButton />}
       />
 
       <div className="grid grid-cols-1 gap-6 mt-6 sm:grid-cols-2 lg:grid-cols-3">

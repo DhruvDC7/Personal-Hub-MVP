@@ -61,7 +61,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-slate-400">
+        <label htmlFor="name" className="block text-sm font-medium text-slate-300">
           Account Name
         </label>
         <input
@@ -70,13 +70,13 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
           name="name"
           value={formData.name}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:ring-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
           required
         />
       </div>
 
       <div>
-        <label htmlFor="type" className="block text-sm font-medium text-slate-400">
+        <label htmlFor="type" className="block text-sm font-medium text-slate-300">
           Account Type
         </label>
         <select
@@ -84,7 +84,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
           name="type"
           value={formData.type}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 py-2 pl-3 pr-10 text-base focus:border-sky-400 focus:outline-none focus:ring-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-sm"
           required
         >
           {accountTypes.map((type) => (
@@ -96,12 +96,12 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
       </div>
 
       <div>
-        <label htmlFor="balance" className="block text-sm font-medium text-slate-400">
+        <label htmlFor="balance" className="block text-sm font-medium text-slate-300">
           Current Balance
         </label>
         <div className="mt-1 relative rounded-md shadow-sm">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="text-slate-400 sm:text-sm">₹</span>
+            <span className="text-slate-300 sm:text-sm">₹</span>
           </div>
           <input
             type="number"
@@ -110,7 +110,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
             name="balance"
             value={formData.balance}
             onChange={handleChange}
-            className="pl-7 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:ring-sky-400 sm:text-sm"
+            className="pl-7 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
             required
           />
         </div>
