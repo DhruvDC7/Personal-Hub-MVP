@@ -46,7 +46,7 @@ function Dashboard() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-400"></div>
       </div>
     );
   }
@@ -72,7 +72,7 @@ function Dashboard() {
         actions={
           <Link 
             href="/transactions/new" 
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
           >
             Add Transaction
           </Link>
@@ -81,33 +81,33 @@ function Dashboard() {
 
       <div className="grid grid-cols-1 gap-6 mt-6 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
-          <h3 className="text-lg font-medium text-gray-900">Net Worth</h3>
+          <h3 className="text-lg font-medium text-slate-50">Net Worth</h3>
           <p className="mt-2 text-3xl font-semibold">
             {formatINR(netWorth.netWorth)}
           </p>
         </Card>
 
         <Card>
-          <h3 className="text-lg font-medium text-gray-900">Accounts</h3>
+          <h3 className="text-lg font-medium text-slate-50">Accounts</h3>
           <p className="mt-2 text-3xl font-semibold">
             {netWorth.accountCount || 0} accounts
           </p>
           <Link 
             href="/accounts" 
-            className="mt-2 text-sm text-indigo-600 hover:text-indigo-500"
+            className="mt-2 text-sm text-sky-400 hover:text-sky-500"
           >
             View all accounts →
           </Link>
         </Card>
 
         <Card>
-          <h3 className="text-lg font-medium text-gray-900">Recent Documents</h3>
+          <h3 className="text-lg font-medium text-slate-50">Recent Documents</h3>
           <p className="mt-2 text-3xl font-semibold">
             {netWorth.documentCount || 0} documents
           </p>
           <Link 
             href="/documents" 
-            className="mt-2 text-sm text-indigo-600 hover:text-indigo-500"
+            className="mt-2 text-sm text-sky-400 hover:text-sky-500"
           >
             View all documents →
           </Link>
@@ -116,10 +116,10 @@ function Dashboard() {
 
       <div className="mt-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Recent Transactions</h2>
+          <h2 className="text-lg font-medium text-slate-50">Recent Transactions</h2>
           <Link 
             href="/transactions" 
-            className="text-sm text-indigo-600 hover:text-indigo-500"
+            className="text-sm text-sky-400 hover:text-sky-500"
           >
             View all transactions →
           </Link>

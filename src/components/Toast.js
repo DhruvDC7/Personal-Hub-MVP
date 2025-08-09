@@ -17,12 +17,12 @@ export function Toast() {
       {items.map((t) => (
         <div
           key={t.id}
-          className={`rounded-lg px-4 py-3 shadow-lg ${
-            t.type === 'error' 
-              ? 'bg-red-100 text-red-800 border border-red-200' 
+          className={`rounded-lg px-4 py-3 shadow-lg bg-slate-800 border ${
+            t.type === 'error'
+              ? 'border-red-500 text-red-200'
               : t.type === 'success'
-              ? 'bg-green-100 text-green-800 border border-green-200'
-              : 'bg-blue-100 text-blue-800 border border-blue-200'
+              ? 'border-emerald-500 text-emerald-200'
+              : 'border-sky-400 text-sky-200'
           }`}
         >
           <p className="text-sm font-medium">{t.message}</p>

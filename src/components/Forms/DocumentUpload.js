@@ -48,7 +48,7 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
         },
       });
 
-      await uploadFile(uploadUrl, file);
+      await uploadFile(url, file);
 
       showToast({
         type: 'success',
@@ -70,10 +70,10 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-700 border-dashed rounded-md bg-slate-900">
           <div className="space-y-1 text-center">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400"
+              className="mx-auto h-12 w-12 text-slate-400"
               stroke="currentColor"
               fill="none"
               viewBox="0 0 48 48"
@@ -86,10 +86,10 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
                 strokeLinejoin="round"
               />
             </svg>
-            <div className="flex text-sm text-gray-600">
+            <div className="flex text-sm text-slate-400">
               <label
                 htmlFor="file-upload"
-                className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
+                className="relative cursor-pointer bg-transparent rounded-md font-medium text-sky-400 hover:text-sky-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-sky-400 focus-within:ring-offset-0"
               >
                 <span>Upload a file</span>
                 <input
@@ -103,9 +103,9 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
               </label>
               <p className="pl-1">or drag and drop</p>
             </div>
-            <p className="text-xs text-gray-500">PDF, JPG, PNG, DOCX up to 10MB</p>
+            <p className="text-xs text-slate-400">PDF, JPG, PNG, DOCX up to 10MB</p>
             {file && (
-              <p className="text-sm text-gray-900 truncate">
+              <p className="text-sm text-slate-50 truncate">
                 Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
               </p>
             )}
@@ -114,7 +114,7 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
       </div>
 
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="title" className="block text-sm font-medium text-slate-400">
           Title
         </label>
         <input
@@ -122,7 +122,7 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
           id="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:ring-sky-400 sm:text-sm"
           placeholder="Enter a title for this document"
           required
         />
@@ -132,7 +132,7 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          className="inline-flex justify-center rounded-lg border border-sky-400 bg-transparent py-2 px-4 text-sm font-medium text-sky-400 shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
           disabled={isUploading}
         >
           Cancel
@@ -140,7 +140,7 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
         <button
           type="submit"
           disabled={!file || isUploading}
-          className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+          className="inline-flex justify-center rounded-lg border border-transparent bg-sky-400 hover:bg-sky-500 py-2 px-4 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0 disabled:opacity-50"
         >
           {isUploading ? 'Uploading...' : 'Upload Document'}
         </button>
