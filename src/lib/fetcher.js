@@ -1,6 +1,6 @@
 import { showToast } from './ui';
 
-export async function api(path, { method = 'GET', body, headers = {} } = {}) {
+export async function api(path, { method = 'GET', body, headers = {} } = {}, retry = true) {
   try {
     const url = path.startsWith('http') || path.startsWith('/api') ? path : `/api${path}`;
     const res = await fetch(url, {
@@ -8,6 +8,13 @@ export async function api(path, { method = 'GET', body, headers = {} } = {}) {
       headers: { 'Content-Type': 'application/json', ...headers },
       body: body ? JSON.stringify(body) : undefined,
     });
+
+    if (res.status === 401 && retry) {
+      const r = await fetch('/api/auth/refresh', { method: 'POST' });
+      if (r.ok) {
+        return api(path, { method, body, headers }, false);
+      }
+    }
 
     const data = await res.json().catch(() => ({}));
 
