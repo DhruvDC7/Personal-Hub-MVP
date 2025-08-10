@@ -46,8 +46,8 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         setAccounts(data);
 
         // If no account is selected, select the first one by default
-        if (!formData.account && data.length > 0) {
-          setFormData(prev => ({ ...prev, account: data[0]._id }));
+        if (!formData.account_id && data.length > 0) {
+          setFormData(prev => ({ ...prev, account_id: data[0].id }));
         }
       } catch (error) {
         console.error('Error fetching accounts:', error);
@@ -57,7 +57,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     };
 
     fetchAccounts();
-  }, [formData.account]);
+  }, [formData.account_id]);
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
@@ -77,11 +77,11 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         amount: Number(formData.amount),
       };
 
-      if (initialData._id) {
+      if (initialData.id) {
         // Update existing transaction
-        await api(`/api/transactions/${initialData._id}`, {
+        await api('/api/transactions', {
           method: 'PUT',
-          body: payload, // Pass payload directly, fetcher will stringify it
+          body: { id: initialData.id, ...payload },
         });
         showToast({ type: 'success', message: 'Transaction updated successfully' });
       } else {
@@ -145,7 +145,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           required
         >
           {accounts.map((account) => (
-            <option key={account._id} value={account._id}>
+            <option key={account.id} value={account.id}>
               {account.name}
             </option>
           ))}
