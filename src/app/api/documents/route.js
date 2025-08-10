@@ -25,27 +25,36 @@ export async function GET(req) {
       { user_id },
       { sort: { created_on: -1 } }
     );
-    if (!status) throw new Error(message);
-    const items = data;
+
+    if (!status) {
+      return Response.json({ status: false, message }, { status: 400 });
+    }
+
+    const items = Array.isArray(data) ? data : [];
+    
+    if (items.length === 0) {
+      return Response.json(
+        { status: false, message: 'No documents found' },
+        { status: 404 }
+      );
+    }
 
     const mapped = items.map((d) => ({
-      id: d.id,
+      id: d._id?.toString() || d.id,
       title: d.title,
       tags: d.tags || [],
       contentType: d.content_type || null,
       size: d.storage?.size || 0,
       uploadedAt: d.created_on,
-      url:
-        d.storage?.bucket && d.storage?.key
-          ? `https://${d.storage.bucket}.s3.${region}.amazonaws.com/${d.storage.key}`
-          : null,
+      url: d.storage?.bucket && d.storage?.key
+        ? `https://${d.storage.bucket}.s3.${region}.amazonaws.com/${d.storage.key}`
+        : null,
     }));
 
     return Response.json({ status: true, data: mapped });
   } catch (e) {
-    const errorMsg = e?.message || "GET /documents failed";
-    await logs(req, errorMsg, 500);
-    return new Response(errorObject("Internal error", 500), { status: 500 });
+    await logs(req, `GET /documents failed: ${e.message}`, 500);
+    return new Response(errorObject("Failed to fetch documents", 500), { status: 500 });
   }
 }
 

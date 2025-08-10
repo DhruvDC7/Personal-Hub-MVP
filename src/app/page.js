@@ -4,36 +4,46 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AddTransactionButton from '@/components/AddTransactionButton';
 import { formatINR } from '@/lib/format';
-import { api } from '@/lib/fetcher';
 import Card from '@/components/Card';
 import PageHeader from '@/components/PageHeader';
 import Table from '@/components/Table';
 
-async function fetchDashboardData() {
-  try {
-    const [netWorth, recentTransactions] = await Promise.all([
-      api('/api/metrics/networth').catch(() => ({ netWorth: 0 })),
-      api('/api/transactions?limit=5').catch(() => [])
-    ]);
-    return { netWorth, recentTransactions };
-  } catch (error) {
-    // Return default values on error
-    return { netWorth: { netWorth: 0 }, recentTransactions: [] };
-  }
-}
-
 function Dashboard() {
-  const [netWorth, setNetWorth] = useState({ netWorth: 0 });
+  const [netWorth, setNetWorth] = useState({ networth: 0, currency: 'INR' });
   const [recentTransactions, setRecentTransactions] = useState([]);
+  const [accountCount, setAccountCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    // No-op cleanup
+    return () => {};
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchDashboardData();
-        setNetWorth(data.netWorth || { netWorth: 0 });
-        setRecentTransactions(data.recentTransactions || []);
+        // Fetch net worth data
+        const netWorthResponse = await fetch('/api/metrics/networth');
+        const netWorthData = await netWorthResponse.json();
+        
+        // Fetch recent transactions
+        const transactionsResponse = await fetch('/api/transactions?limit=5');
+        const transactionsData = await transactionsResponse.json();
+        
+        // Fetch accounts data
+        const accountsResponse = await fetch('/api/accounts');
+        const accountsData = await accountsResponse.json();
+        
+        if (netWorthData.status) {
+          setNetWorth(netWorthData.data);
+        }
+        
+        if (accountsData.status) {
+          setAccountCount(accountsData.data.length);
+        }
+        
+        setRecentTransactions(transactionsData.data || []);
       } catch (error) {
         // Error is handled by the UI state
       } finally {
@@ -77,14 +87,14 @@ function Dashboard() {
         <Card>
           <h3 className="text-lg font-medium text-slate-50">Net Worth</h3>
           <p className="mt-2 text-3xl font-semibold">
-            {formatINR(netWorth.netWorth)}
+            {formatINR(netWorth.networth)}
           </p>
         </Card>
 
         <Card>
           <h3 className="text-lg font-medium text-slate-50">Accounts</h3>
           <p className="mt-2 text-3xl font-semibold">
-            {netWorth.accountCount || 0} accounts
+            {accountCount} {accountCount === 1 ? 'account' : 'accounts'}
           </p>
           <Link 
             href="/accounts" 
@@ -132,5 +142,6 @@ function Dashboard() {
 }
 
 export default function Page() {
+  console.log('Dashboard component mounted');
   return <Dashboard />;
 }
