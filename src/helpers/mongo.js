@@ -1,6 +1,27 @@
 import { clientPromise } from "../lib/mongo";
+import { ObjectId } from "mongodb";
 
 const DatabaseName = process.env.MONGODB_DB;
+
+/**
+ * Converts various ID types to MongoDB ObjectId
+ * @param {string|Buffer|ObjectId|any} id - The ID to convert
+ * @returns {ObjectId} - The converted ObjectId
+ */
+const toObjectId = (id) => {
+    if (!id) return id;
+    if (id instanceof ObjectId) return id;
+    if (Buffer.isBuffer(id)) return new ObjectId(id.toString('hex'));
+    if (typeof id === 'string') {
+        try {
+            return new ObjectId(id);
+        } catch (e) {
+            // If it's not a valid ObjectId string, create a new one
+            return new ObjectId();
+        }
+    }
+    return id;
+};
 
 /**
  * Finds a single document in a MongoDB collection.
@@ -9,6 +30,12 @@ export const MongoClientFindOne = async (collection, query = {}, options = {}) =
     try {
         const client = await clientPromise;
         const db = client.db(DatabaseName);
+        
+        // Convert _id to ObjectId if it exists in the query
+        if (query._id) {
+            query._id = toObjectId(query._id);
+        }
+        
         const data = await db.collection(collection).findOne(query, options);
         
         return {
@@ -36,6 +63,22 @@ export const MongoClientFind = async (collection, query = {}, options = {}) => {
     try {
         const client = await clientPromise;
         const db = client.db(DatabaseName);
+        
+        // Convert _id to ObjectId if it exists in the query
+        if (query._id) {
+            query._id = toObjectId(query._id);
+        }
+        
+        // Handle nested _id in $or queries
+        if (query.$or && Array.isArray(query.$or)) {
+            query.$or = query.$or.map(condition => {
+                if (condition._id) {
+                    return { ...condition, _id: toObjectId(condition._id) };
+                }
+                return condition;
+            });
+        }
+        
         const data = await db.collection(collection).find(query, options).toArray();
         
         return {
@@ -66,6 +109,17 @@ export const MongoClientUpdateOne = async (collection, query = {}, update = {}) 
     try {
         const client = await clientPromise;
         const db = client.db(DatabaseName);
+        
+        // Convert _id to ObjectId if it exists in the query
+        if (query._id) {
+            query._id = toObjectId(query._id);
+        }
+        
+        // Handle $set operations with _id
+        if (update.$set && update.$set._id) {
+            update.$set._id = toObjectId(update.$set._id);
+        }
+        
         const updateResult = await db.collection(collection).updateOne(query, update);
         
         return {
@@ -125,6 +179,12 @@ export const MongoClientDeleteOne = async (collection, query) => {
     try {
         const client = await clientPromise;
         const db = client.db(DatabaseName);
+        
+        // Convert _id to ObjectId if it exists in the query
+        if (query._id) {
+            query._id = toObjectId(query._id);
+        }
+        
         const deleteResult = await db.collection(collection).deleteOne(query);
         
         return {
@@ -184,7 +244,22 @@ export const MongoClientUpdateOneInArray = async (collection, query = {}, update
    try {
        const client = await clientPromise;
        const db = client.db(DatabaseName);
-       const updateResult = await db.collection(collection).updateOne(query, update, { arrayFilters });
+       
+       // Convert _id to ObjectId if it exists in the query
+       if (query._id) {
+           query._id = toObjectId(query._id);
+       }
+       
+       // Process array filters to convert any _id fields
+       const processedArrayFilters = arrayFilters.map(filter => {
+           const newFilter = { ...filter };
+           if (newFilter['elem._id']) {
+               newFilter['elem._id'] = toObjectId(newFilter['elem._id']);
+           }
+           return newFilter;
+       });
+       
+       const updateResult = await db.collection(collection).updateOne(query, update, { arrayFilters: processedArrayFilters });
        
        return {
            status: updateResult.modifiedCount > 0,
@@ -212,7 +287,22 @@ export const MongoClientUpdateManyWithArrayFilter = async (collection, query = {
     try {
         const client = await clientPromise;
         const db = client.db(DatabaseName);
-        const updateResult = await db.collection(collection).updateMany(query, update, { arrayFilters });
+        
+        // Convert _id to ObjectId if it exists in the query
+        if (query._id) {
+            query._id = toObjectId(query._id);
+        }
+        
+        // Process array filters to convert any _id fields
+        const processedArrayFilters = arrayFilters.map(filter => {
+            const newFilter = { ...filter };
+            if (newFilter['elem._id']) {
+                newFilter['elem._id'] = toObjectId(newFilter['elem._id']);
+            }
+            return newFilter;
+        });
+        
+        const updateResult = await db.collection(collection).updateMany(query, update, { arrayFilters: processedArrayFilters });
         
         return {
             status: updateResult.modifiedCount > 0,
@@ -240,6 +330,12 @@ export const MongoClientDocumentCount = async (collection, query = {}) => {
     try {
         const client = await clientPromise;
         const db = client.db(DatabaseName);
+        
+        // Convert _id to ObjectId if it exists in the query
+        if (query._id) {
+            query._id = toObjectId(query._id);
+        }
+        
         const count = await db.collection(collection).countDocuments(query);
         
         return {
