@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Navbar() {
   const pathname = usePathname();
-  
+  const { user, logout } = useAuth();
+
   const navItems = [
     { name: 'Dashboard', path: '/' },
     { name: 'Accounts', path: '/accounts' },
@@ -37,6 +39,19 @@ export default function Navbar() {
                 </Link>
               ))}
             </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <>
+                <span className="text-slate-400 text-sm">{user.email}</span>
+                <button onClick={logout} className="text-slate-400 hover:text-slate-50 text-sm">Logout</button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="text-slate-400 hover:text-slate-50 text-sm">Login</Link>
+                <Link href="/register" className="text-slate-400 hover:text-slate-50 text-sm">Register</Link>
+              </>
+            )}
           </div>
         </div>
       </div>

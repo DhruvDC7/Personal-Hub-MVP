@@ -10,10 +10,13 @@ import {
   MongoClientFindOne,
   MongoClientDeleteOne,
 } from "@/helpers/mongo";
+import { requireAuth } from "@/middleware/auth";
+
+const toObjectId = (id) => id;
 
 export async function GET(req) {
   try {
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month");
     const type = searchParams.get("type");
@@ -23,7 +26,7 @@ export async function GET(req) {
     const start = month ? dayjs(`${month}-01`).startOf("month").toDate() : dayjs().startOf("month").toDate();
     const end = month ? dayjs(`${month}-01`).endOf("month").toDate() : dayjs().endOf("month").toDate();
 
-    const query = { user_id, happened_on: { $gte: start, $lte: end } };
+    const query = { user_id: userId, happened_on: { $gte: start, $lte: end } };
     if (type) query.type = type;
     
     if (account) {
@@ -40,6 +43,9 @@ export async function GET(req) {
     return Response.json({ status: true, data });
     
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     await logs(req, e?.message || "Failed to fetch transactions", 500);
     return new Response(errorObject("Internal server error", 500), { status: 500 });
   }
@@ -55,10 +61,10 @@ export async function POST(req) {
       return new Response(errorObject(error.message, 400), { status: 400 });
     }
     
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     const doc = {
       ...value,
-      user_id,
+      user_id: userId,
       happened_on: new Date(value.happened_on),
       created_on: new Date(),
       updated_on: new Date(),
@@ -89,9 +95,12 @@ export async function POST(req) {
     );
       
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     await logs(req, `Transaction creation failed: ${e.message}`, 500, body);
-    return new Response(errorObject("Failed to create transaction", 500), { 
-      status: 500 
+    return new Response(errorObject("Failed to create transaction", 500), {
+      status: 500
     });
   }
 }
@@ -103,7 +112,7 @@ export async function PUT(req) {
     
     if (!id) return new Response(errorObject("Transaction ID is required", 400), { status: 400 });
 
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     let txId;
     
     try {
@@ -115,7 +124,7 @@ export async function PUT(req) {
     // Verify transaction exists
     const { status: existingStatus, data: existing } = await MongoClientFindOne(
       "transactions",
-      { _id: toObjectId(txId.toString()), user_id }
+      { _id: toObjectId(txId.toString()), user_id: userId }
     );
     
     if (!existingStatus || !existing) {
@@ -146,7 +155,7 @@ export async function PUT(req) {
     const newAccountId = set.account_id ? set.account_id : existing.account_id;
     const { status: accStatus, data: acc } = await MongoClientFindOne(
       "accounts",
-      { _id: toObjectId(newAccountId.toString()), user_id }
+      { _id: toObjectId(newAccountId.toString()), user_id: userId }
     );
     
     if (!accStatus || !acc) {
@@ -167,8 +176,8 @@ export async function PUT(req) {
     if (prevSign !== 0) {
       ops.push(
         MongoClientUpdateOne(
-          "accounts", 
-          { _id: toObjectId(prevAccId.toString()) }, 
+          "accounts",
+          { _id: toObjectId(prevAccId.toString()) },
           { $inc: { balance: -prevSign * existing.amount } }
         )
       );
@@ -177,8 +186,8 @@ export async function PUT(req) {
     if (nextSign !== 0) {
       ops.push(
         MongoClientUpdateOne(
-          "accounts", 
-          { _id: toObjectId(nextAccId.toString()) }, 
+          "accounts",
+          { _id: toObjectId(nextAccId.toString()) },
           { $inc: { balance: nextSign * nextAmount } }
         )
       );
@@ -187,7 +196,7 @@ export async function PUT(req) {
     // Update transaction
     const { status, message } = await MongoClientUpdateOne(
       "transactions",
-      { _id: toObjectId(txId.toString()), user_id },
+      { _id: toObjectId(txId.toString()), user_id: userId },
       { $set: set }
     );
     
@@ -202,9 +211,12 @@ export async function PUT(req) {
     });
       
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     await logs(req, `Failed to update transaction: ${e.message}`, 500);
-    return new Response(errorObject("Failed to update transaction", 500), { 
-      status: 500 
+    return new Response(errorObject("Failed to update transaction", 500), {
+      status: 500
     });
   }
 }
@@ -218,7 +230,7 @@ export async function DELETE(req) {
       return new Response(errorObject("Transaction ID is required", 400), { status: 400 });
     }
 
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     let txId;
     
     try {
@@ -230,7 +242,7 @@ export async function DELETE(req) {
     // Get transaction to update account balance
     const { status: existingStatus, data: existing } = await MongoClientFindOne(
       "transactions",
-      { _id: toObjectId(txId.toString()), user_id }
+      { _id: toObjectId(txId.toString()), user_id: userId }
     );
     
     if (!existingStatus || !existing) {
@@ -251,7 +263,7 @@ export async function DELETE(req) {
     // Delete transaction
     const { status, message } = await MongoClientDeleteOne("transactions", {
       _id: toObjectId(txId.toString()),
-      user_id,
+      user_id: userId,
     });
     
     if (!status) throw new Error(message);
@@ -262,9 +274,12 @@ export async function DELETE(req) {
     });
       
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     await logs(req, `Failed to delete transaction: ${e.message}`, 500);
-    return new Response(errorObject("Failed to delete transaction", 500), { 
-      status: 500 
+    return new Response(errorObject("Failed to delete transaction", 500), {
+      status: 500
     });
   }
 }

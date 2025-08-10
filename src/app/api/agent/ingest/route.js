@@ -6,6 +6,7 @@ import {
   MongoClientInsertOne,
   MongoClientUpdateOne,
 } from "@/helpers/mongo";
+import { requireAuth } from "@/middleware/auth";
 
 const toObjectId = (id) => ({ $oid: String(id) });
 
@@ -51,11 +52,11 @@ export async function POST(req) {
       );
     }
 
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
 
     const { status, data: accounts } = await MongoClientFind(
       "accounts",
-      { user_id },
+      { user_id: userId },
       { projection: { _id: 1, name: 1 } }
     );
     if (!status) {
@@ -82,7 +83,7 @@ export async function POST(req) {
     }
 
     const doc = {
-      user_id,
+      user_id: userId,
       account_id: new ObjectId(account_id),
       type,
       amount,
@@ -112,7 +113,7 @@ export async function POST(req) {
     if (delta !== 0) {
       await MongoClientUpdateOne(
         "accounts",
-        { _id: toObjectId(account_id), user_id },
+        { _id: toObjectId(account_id), user_id: userId },
         {
           $inc: { balance: delta },
           $set: { updated_on: new Date() },
@@ -125,6 +126,9 @@ export async function POST(req) {
       { status: 201 }
     );
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     await logs(req, e?.message || "POST /agent/ingest failed", 500);
     return new Response(errorObject("Internal error", 500), { status: 500 });
   }
