@@ -1,8 +1,16 @@
 import { ObjectId } from "mongodb";
-import { getDb } from "@/lib/mongo";
 import { accountSchema } from "@/models/schemas";
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
+import {
+  MongoApiFind,
+  MongoApiInsertOne,
+  MongoApiUpdateOne,
+  documentCountMongo,
+  MongoApiDeleteOne,
+} from "@/helpers/mongo";
+
+const toObjectId = (id) => ({ $oid: String(id) });
 
 export async function GET(req) {
   const startTime = Date.now();
@@ -11,14 +19,17 @@ export async function GET(req) {
   console.log(`[API] [${requestId}] GET /api/accounts - Starting`);
   
   try {
-    const db = await getDb();
     const user_id = "demo-user";
-    const items = await db.collection("accounts")
-      .find({ user_id })
-      .sort({ created_on: -1 })
-      .toArray();
-    console.log(`[API] [${requestId}] GET /api/accounts - Success (${Date.now() - startTime}ms) - Found ${items.length} items`);
-    return Response.json({ status: true, data: items });
+    const { status, data, message } = await MongoApiFind(
+      "accounts",
+      { user_id },
+      { sort: { created_on: -1 } }
+    );
+    if (!status) throw new Error(message);
+    console.log(
+      `[API] [${requestId}] GET /api/accounts - Success (${Date.now() - startTime}ms) - Found ${data.length} items`
+    );
+    return Response.json({ status: true, data });
   } catch (e) {
     const errorMsg = e?.message || "GET /accounts failed";
     console.error(`[API] [${requestId}] GET /api/accounts - Error (${Date.now() - startTime}ms):`, errorMsg);
@@ -44,19 +55,20 @@ export async function POST(req) {
   }
   
   try {
-    const db = await getDb();
     const user_id = "demo-user";
-    const doc = { 
-      ...value, 
-      user_id, 
-      created_on: new Date(), 
-      updated_on: new Date() 
+    const doc = {
+      ...value,
+      user_id,
+      created_on: new Date(),
+      updated_on: new Date(),
     };
-    
-    const r = await db.collection("accounts").insertOne(doc);
-    console.log(`[API] [${requestId}] POST /api/accounts - Created account ${r.insertedId} (${Date.now() - startTime}ms)`);
+    const { status, id, message } = await MongoApiInsertOne("accounts", doc);
+    if (!status) throw new Error(message);
+    console.log(
+      `[API] [${requestId}] POST /api/accounts - Created account ${id} (${Date.now() - startTime}ms)`
+    );
     return Response.json(
-      { status: true, data: { _id: r.insertedId, ...doc } },
+      { status: true, data: { id, ...doc } },
       { status: 201 }
     );
   } catch (e) {
@@ -76,35 +88,32 @@ export async function PUT(req) {
   
   try {
     const body = await req.json();
-    const { _id, name, type, balance, currency, meta } = body || {};
-    if (!_id) {
-      return new Response(errorObject("_id is required", 400), { status: 400 });
+    const { id, name, type, balance, currency, meta } = body || {};
+    if (!id) {
+      return new Response(errorObject("id is required", 400), { status: 400 });
     }
-    const db = await getDb();
     const user_id = "demo-user";
-    let objId;
     try {
-      objId = new ObjectId(String(_id));
+      new ObjectId(String(id));
     } catch {
-      return new Response(errorObject("invalid _id", 400), { status: 400 });
+      return new Response(errorObject("invalid id", 400), { status: 400 });
     }
-    // Build update doc with only allowed fields
     const set = { updated_on: new Date() };
     if (typeof name === "string") set.name = name;
     if (typeof type === "string") set.type = type;
     if (typeof currency === "string") set.currency = currency;
     if (typeof balance === "number") set.balance = balance;
     if (meta && typeof meta === "object") set.meta = meta;
-
-    const r = await db.collection("accounts").updateOne(
-      { _id: objId, user_id },
+    const { status, message } = await MongoApiUpdateOne(
+      "accounts",
+      { _id: toObjectId(id), user_id },
       { $set: set }
     );
-    if (r.matchedCount === 0) {
-      return new Response(errorObject("account not found", 404), { status: 404 });
-    }
-    console.log(`[API] [${requestId}] PUT /api/accounts - Updated account ${_id} (${Date.now() - startTime}ms)`);
-    return Response.json({ status: true, data: { _id, ...set } });
+    if (!status) throw new Error(message);
+    console.log(
+      `[API] [${requestId}] PUT /api/accounts - Updated account ${id} (${Date.now() - startTime}ms)`
+    );
+    return Response.json({ status: true, data: { id, ...set } });
   } catch (e) {
     const errorMsg = e?.message || "PUT /accounts failed";
     console.error(`[API] [${requestId}] PUT /api/accounts - Error (${Date.now() - startTime}ms):`, errorMsg);
@@ -123,37 +132,37 @@ export async function DELETE(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
-    const id = body?._id || searchParams.get("id");
+    const id = body?.id || searchParams.get("id");
     if (!id) return new Response(errorObject("id is required", 400), { status: 400 });
 
-    let _id;
     try {
-      _id = new ObjectId(String(id));
+      new ObjectId(String(id));
     } catch {
       return new Response(errorObject("invalid id", 400), { status: 400 });
     }
-
-    const db = await getDb();
     const user_id = "demo-user";
-
-    // Ensure no linked transactions
-    const txCount = await db
-      .collection("transactions")
-      .countDocuments({ account_id: _id, user_id });
-    if (txCount > 0) {
+    const { status: countStatus, data: count } = await documentCountMongo(
+      "transactions",
+      { account_id: toObjectId(id), user_id }
+    );
+    if (!countStatus) {
+      return new Response(errorObject("Internal error", 500), { status: 500 });
+    }
+    if (count > 0) {
       return new Response(
         errorObject("Account has transactions", 409),
         { status: 409 }
       );
     }
-
-    const r = await db.collection("accounts").deleteOne({ _id, user_id });
-    if (r.deletedCount === 0) {
-      console.warn(`[API] [${requestId}] DELETE /api/accounts - Account not found: ${id}`);
-      return new Response(errorObject("account not found", 404), { status: 404 });
-    }
-    console.log(`[API] [${requestId}] DELETE /api/accounts - Deleted account ${id} (${Date.now() - startTime}ms)`);
-    return Response.json({ status: true, data: { _id: id } });
+    const { status: delStatus, message } = await MongoApiDeleteOne(
+      "accounts",
+      { _id: toObjectId(id), user_id }
+    );
+    if (!delStatus) throw new Error(message);
+    console.log(
+      `[API] [${requestId}] DELETE /api/accounts - Deleted account ${id} (${Date.now() - startTime}ms)`
+    );
+    return Response.json({ status: true, data: { id } });
   } catch (e) {
     const errorMsg = e?.message || "DELETE /accounts failed";
     console.error(`[API] [${requestId}] DELETE /api/accounts - Error (${Date.now() - startTime}ms):`, errorMsg);
