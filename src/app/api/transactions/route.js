@@ -4,11 +4,11 @@ import { transactionSchema } from "@/models/schemas";
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
 import {
-  MongoApiFind,
-  MongoApiInsertOne,
-  MongoApiUpdateOne,
-  MongoApiFindOne,
-  MongoApiDeleteOne,
+  MongoClientFind,
+  MongoClientInsertOne,
+  MongoClientUpdateOne,
+  MongoClientFindOne,
+  MongoClientDeleteOne,
 } from "@/helpers/mongo";
 
 const toObjectId = (id) => ({ $oid: String(id) });
@@ -48,7 +48,7 @@ export async function GET(req) {
       }
     }
 
-    const { status, data, message } = await MongoApiFind(
+    const { status, data, message } = await MongoClientFind(
       "transactions",
       query,
       { sort: { happened_on: -1 }, ...(limit ? { limit } : {}) }
@@ -99,7 +99,7 @@ export async function POST(req) {
       });
     }
 
-    const { status: accStatus, data: acc } = await MongoApiFindOne(
+    const { status: accStatus, data: acc } = await MongoClientFindOne(
       "accounts",
       { _id: toObjectId(accId.toString()), user_id }
     );
@@ -120,7 +120,7 @@ export async function POST(req) {
       updated_on: new Date(),
     };
     
-    const { status, id, message } = await MongoApiInsertOne("transactions", doc);
+    const { status, id, message } = await MongoClientInsertOne("transactions", doc);
     if (!status) throw new Error(message);
     console.log(`[API] [${requestId}] POST /api/transactions - Created transaction ${id} (${Date.now() - startTime}ms)`);
 
@@ -131,7 +131,7 @@ export async function POST(req) {
     if (value.type === "income") delta = value.amount;
     
     if (delta !== 0) {
-      await MongoApiUpdateOne(
+      await MongoClientUpdateOne(
         "accounts",
         { _id: toObjectId(accId.toString()), user_id },
         {
@@ -176,7 +176,7 @@ export async function PUT(req) {
     } catch {
       return new Response(errorObject("invalid id", 400), { status: 400 });
     }
-    const { status: existingStatus, data: existing } = await MongoApiFindOne(
+    const { status: existingStatus, data: existing } = await MongoClientFindOne(
       "transactions",
       { _id: toObjectId(txId.toString()), user_id }
     );
@@ -205,7 +205,7 @@ export async function PUT(req) {
 
     // Validate new account ownership if changed
     const newAccountId = set.account_id ? set.account_id : existing.account_id;
-    const { status: accStatus, data: acc } = await MongoApiFindOne(
+    const { status: accStatus, data: acc } = await MongoClientFindOne(
       "accounts",
       { _id: toObjectId(newAccountId.toString()), user_id }
     );
@@ -224,7 +224,7 @@ export async function PUT(req) {
     const ops = [];
     if (prevSign !== 0) {
       ops.push(
-        MongoApiUpdateOne(
+        MongoClientUpdateOne(
           "accounts",
           { _id: toObjectId(prevAccId.toString()), user_id },
           { $inc: { balance: -(prevSign * existing.amount) }, $set: { updated_on: new Date() } }
@@ -233,7 +233,7 @@ export async function PUT(req) {
     }
     if (nextSign !== 0) {
       ops.push(
-        MongoApiUpdateOne(
+        MongoClientUpdateOne(
           "accounts",
           { _id: toObjectId(nextAccId.toString()), user_id },
           { $inc: { balance: nextSign * nextAmount }, $set: { updated_on: new Date() } }
@@ -242,7 +242,7 @@ export async function PUT(req) {
     }
     if (ops.length) await Promise.all(ops);
 
-    await MongoApiUpdateOne(
+    await MongoClientUpdateOne(
       "transactions",
       { _id: toObjectId(txId.toString()), user_id },
       { $set: set }
@@ -278,7 +278,7 @@ export async function DELETE(req) {
     }
 
     const user_id = "demo-user";
-    const { status: txStatus, data: tx } = await MongoApiFindOne(
+    const { status: txStatus, data: tx } = await MongoClientFindOne(
       "transactions",
       { _id: toObjectId(objId.toString()), user_id }
     );
@@ -288,14 +288,14 @@ export async function DELETE(req) {
     // reverse balance
     const sign = tx.type === "expense" ? -1 : tx.type === "income" ? 1 : 0;
     if (sign !== 0) {
-      await MongoApiUpdateOne(
+      await MongoClientUpdateOne(
         "accounts",
         { _id: toObjectId(tx.account_id.toString()), user_id },
         { $inc: { balance: -(sign * tx.amount) }, $set: { updated_on: new Date() } }
       );
     }
 
-    await MongoApiDeleteOne("transactions", { _id: toObjectId(objId.toString()), user_id });
+    await MongoClientDeleteOne("transactions", { _id: toObjectId(objId.toString()), user_id });
     console.log(`[API] [${requestId}] DELETE /api/transactions - Deleted transaction ${id} (${Date.now() - startTime}ms)`);
     return Response.json({ status: true, data: { id } });
   } catch (e) {

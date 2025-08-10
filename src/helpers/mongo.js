@@ -1,167 +1,261 @@
-const BASE_URI = process.env.MONGODB_DATA_API_URI;
-const CUSTOM_URI = process.env.MONGODB_DATA_API_URI_CUSTOM_ENDPOINT || BASE_URI;
-const DATA_SOURCE = process.env.MONGODB_DATA_API_DATASOURCE;
-const DB_NAME = process.env.MONGODB_DATA_API_DBNAME;
+import { clientPromise } from "../lib/mongo";
 
-export const headers = {
-  'Content-Type': 'application/json',
-  'Accept': 'application/json',
-  'Access-Control-Request-Headers': '*',
-  'api-key': process.env.MONGODB_DATA_API_KEY,
+const DatabaseName = process.env.MONGODB_DB;
+
+/**
+ * Finds a single document in a MongoDB collection.
+ */
+export const MongoClientFindOne = async (collection, query = {}, options = {}) => {
+    try {
+        const client = await clientPromise;
+        const db = client.db(DatabaseName);
+        const data = await db.collection(collection).findOne(query, options);
+        
+        return {
+            status: !!data,
+            mode: "find",
+            data: data || {},
+            id: data?._id || "",
+            message: data ? "Record found." : "No record found."
+        };
+    } catch (e) {
+        return {
+            status: false,
+            mode: "error",
+            data: {},
+            id: "",
+            message: `Internal Server Error: ${e.message}`
+        };
+    } 
 };
 
-function parseId(id) {
-  if (id && typeof id === 'object') {
-    return id.$oid || id.$binary?.base64 || id;
-  }
-  return id;
-}
-
-function transformDoc(doc) {
-  if (!doc || typeof doc !== 'object') return doc;
-  const { _id, ...rest } = doc;
-  const out = { ...rest };
-  if (_id !== undefined) out.id = parseId(_id);
-  return out;
-}
-
-function buildBody(collection, payload) {
-  return JSON.stringify({
-    dataSource: DATA_SOURCE,
-    database: DB_NAME,
-    collection,
-    ...payload,
-  });
-}
-
-async function handleResponse(res, mode) {
-  let json;
-  try {
-    json = await res.json();
-  } catch {
-    return { status: false, mode, data: null, id: 0, message: 'No response body' };
-  }
-  if (!res.ok) {
-    const message = json.error || json.message || 'Request failed';
-    return { status: false, mode, data: null, id: 0, message };
-  }
-  const rawId = json.insertedId || json.upsertedId || 0;
-  return { status: true, mode, data: json, id: parseId(rawId), message: '' };
-}
-
-export async function MongoApiFindOne(collection, query, options = {}) {
-  if (!collection || !query) throw new Error('collection and query are required');
-  const url = `${BASE_URI}/action/findOne`;
-  const body = buildBody(collection, { filter: query, ...options });
-  const res = await fetch(url, { method: 'POST', headers, body });
-  const out = await handleResponse(res, 'findOne');
-  if (out.status) {
-    out.data = transformDoc(out.data.document || null);
-    out.id = out.data?.id || 0;
-  }
-  return out;
-}
-
-export async function MongoApiFind(collection, query, options = {}) {
-  if (!collection || !query) throw new Error('collection and query are required');
-  const url = `${BASE_URI}/action/find`;
-  const body = buildBody(collection, { filter: query, ...options });
-  const res = await fetch(url, { method: 'POST', headers, body });
-  const out = await handleResponse(res, 'find');
-  if (out.status) {
-    const docs = out.data.documents || [];
-    out.data = docs.map(transformDoc);
-    out.id = out.data.length;
-  }
-  return out;
-}
-
-export async function MongoApiInsertOne(collection, insertDoc) {
-  if (!collection || !insertDoc) throw new Error('collection and insertDoc are required');
-  const url = `${BASE_URI}/action/insertOne`;
-  const body = buildBody(collection, { document: insertDoc });
-  const res = await fetch(url, { method: 'POST', headers, body });
-  const out = await handleResponse(res, 'insertOne');
-  if (out.status) {
-    out.id = parseId(out.id);
-    out.data = { id: out.id, ...insertDoc };
-  }
-  return out;
-}
-
-export async function MongoApiUpdateOne(collection, query, updateOptions) {
-  if (!collection || !query || !updateOptions) throw new Error('collection, query and updateOptions are required');
-  const url = `${BASE_URI}/action/updateOne`;
-  const body = buildBody(collection, { filter: query, update: updateOptions });
-  const res = await fetch(url, { method: 'POST', headers, body });
-  const out = await handleResponse(res, 'updateOne');
-  return out;
-}
-
-export async function MongoApiUpdateOneInArray(collection, query, updateOptions, arrayFilters) {
-  if (!collection || !query || !updateOptions || !arrayFilters) throw new Error('collection, query, updateOptions and arrayFilters are required');
-  const url = `${BASE_URI}/action/updateOne`;
-  const body = buildBody(collection, { filter: query, update: updateOptions, arrayFilters });
-  const res = await fetch(url, { method: 'POST', headers, body });
-  const out = await handleResponse(res, 'updateOneInArray');
-  return out;
-}
-
-export async function MongoApiUpdateManyWithArrayFilter(collection, query, updateOptions, arrayFilters) {
-  if (!collection || !query || !updateOptions || !arrayFilters) throw new Error('collection, query, updateOptions and arrayFilters are required');
-  const url = `${BASE_URI}/action/updateMany`;
-  const body = buildBody(collection, { filter: query, update: updateOptions, arrayFilters });
-  const res = await fetch(url, { method: 'POST', headers, body });
-  const out = await handleResponse(res, 'updateManyWithArrayFilter');
-  return out;
-}
-
-export async function MongoApiAggregate(collection, pipeline) {
-  if (!collection || !pipeline) throw new Error('collection and pipeline are required');
-  const url = `${CUSTOM_URI}/action/aggregate`;
-  const body = buildBody(collection, { pipeline });
-  const res = await fetch(url, { method: 'POST', headers, body });
-  const out = await handleResponse(res, 'aggregate');
-  if (out.status) {
-    const docs = out.data.documents || [];
-    out.data = docs.map(transformDoc);
-    out.id = out.data.length;
-  }
-  return out;
-}
-
-export async function documentCountMongo(collection, query, options = {}) {
-  if (!collection || !query) throw new Error('collection and query are required');
-  const url = `${BASE_URI}/action/countDocuments`;
-  const body = buildBody(collection, { filter: query, ...options });
-  const res = await fetch(url, { method: 'POST', headers, body });
-  const out = await handleResponse(res, 'countDocuments');
-  if (out.status) {
-    out.id = out.data.count || 0;
-    out.data = out.data.count;
-  }
-  return out;
-}
-
-export async function MongoApiDeleteOne(collection, query) {
-  if (!collection || !query) throw new Error('collection and query are required');
-  const url = `${BASE_URI}/action/deleteOne`;
-  const body = buildBody(collection, { filter: query });
-  const res = await fetch(url, { method: 'POST', headers, body });
-  const out = await handleResponse(res, 'deleteOne');
-  return out;
-}
-
-const mongoHelpers = {
-  MongoApiFindOne,
-  MongoApiFind,
-  MongoApiInsertOne,
-  MongoApiUpdateOne,
-  MongoApiUpdateOneInArray,
-  MongoApiUpdateManyWithArrayFilter,
-  MongoApiAggregate,
-  documentCountMongo,
-  MongoApiDeleteOne,
+/**
+ * Finds multiple documents in a MongoDB collection.
+ */
+export const MongoClientFind = async (collection, query = {}, options = {}) => {
+    try {
+        const client = await clientPromise;
+        const db = client.db(DatabaseName);
+        const data = await db.collection(collection).find(query, options).toArray();
+        
+        return {
+            status: data.length > 0,
+            mode: "find",
+            data,
+            id: 1,
+            message: data.length > 0 ? "Records found." : "No records found."
+        };
+    } catch (e) {
+        return {
+            status: false,
+            mode: "error",
+            data: [],
+            id: 0,
+            message: `Internal Server Error: ${e.message}`
+        };
+    }
 };
 
-export default mongoHelpers;
+/**
+ * Updates a single document in a MongoDB collection.
+ */
+export const MongoClientUpdateOne = async (collection, query = {}, update = {}) => {
+    if (Object.keys(update).length === 0) throw new Error("Update options cannot be empty");
+    if (Object.keys(query).length === 0) throw new Error("Query cannot be empty");
+    
+    try {
+        const client = await clientPromise;
+        const db = client.db(DatabaseName);
+        const updateResult = await db.collection(collection).updateOne(query, update);
+        
+        return {
+            status: updateResult.modifiedCount > 0,
+            mode: "update",
+            data: updateResult.modifiedCount,
+            id: updateResult.upsertedId || "",
+            message: updateResult.modifiedCount > 0 ? "Update successful." : "No document updated."
+        };
+    } catch (e) {
+        return {
+            status: false,
+            mode: "error",
+            data: 0,
+            id: "",
+            message: `Internal Server Error: ${e.message}`
+        };
+    }
+};
+
+
+/**
+ * Inserts a document into a MongoDB collection.
+ */
+export const MongoClientInsertOne = async (collection, document) => {
+    if (Object.keys(document).length === 0) throw new Error("Document cannot be empty");
+    
+    try {
+        const client = await clientPromise;
+        const db = client.db(DatabaseName);
+        const insertResult = await db.collection(collection).insertOne(document);
+        
+        return {
+            status: insertResult.acknowledged,
+            mode: "insert",
+            data: insertResult.insertedId,
+            id: insertResult.insertedId || "",
+            message: insertResult.acknowledged ? "Insert successful." : "Insert failed."
+        };
+    } catch (e) {
+        return {
+            status: false,
+            mode: "error",
+            data: 0,
+            id: "",
+            message: `Internal Server Error: ${e.message}`
+        };
+    }
+};
+
+/**
+ * Deletes a single document from a MongoDB collection.
+ */
+export const MongoClientDeleteOne = async (collection, query) => {
+    if (Object.keys(query).length === 0) throw new Error("Query cannot be empty");
+    
+    try {
+        const client = await clientPromise;
+        const db = client.db(DatabaseName);
+        const deleteResult = await db.collection(collection).deleteOne(query);
+        
+        return {
+            status: deleteResult.deletedCount > 0,
+            mode: "delete",
+            data: deleteResult.deletedCount,
+            id: deleteResult.deletedCount,
+            message: deleteResult.deletedCount > 0 ? "Delete successful." : "No document found to delete."
+        };
+    } catch (e) {
+        return {
+            status: false,
+            mode: "error",
+            data: 0,
+            id: "",
+            message: `Internal Server Error: ${e.message}`
+        };
+    }
+};
+
+/**
+ * Aggregates documents in a MongoDB collection.
+ */
+export const MongoClientAggregate = async (collection, pipeline = []) => {
+    if (pipeline.length === 0) throw new Error("Pipeline cannot be empty");
+    
+    try {
+        const client = await clientPromise;
+        const db = client.db(DatabaseName);
+        const data = await db.collection(collection).aggregate(pipeline).toArray();
+        
+        return {
+            status: data.length > 0,
+            mode: "aggregate",
+            data,
+            id: 1,
+            message: data.length > 0 ? "Aggregation successful." : "No results from aggregation."
+        };
+    } catch (e) {
+        return {
+            status: false,
+            mode: "error",
+            data: [],
+            id: 0,
+            message: `Internal Server Error: ${e.message}`
+        };
+    }
+};
+
+// * Updates a single document in an array within a MongoDB collection.
+// */
+export const MongoClientUpdateOneInArray = async (collection, query = {}, update = {}, arrayFilters = []) => {
+   if (Object.keys(update).length === 0) throw new Error("Update options cannot be empty");
+   if (Object.keys(query).length === 0) throw new Error("Query cannot be empty");
+   if (arrayFilters.length === 0) throw new Error("Array filters cannot be empty");
+   
+   try {
+       const client = await clientPromise;
+       const db = client.db(DatabaseName);
+       const updateResult = await db.collection(collection).updateOne(query, update, { arrayFilters });
+       
+       return {
+           status: updateResult.modifiedCount > 0,
+           mode: "update",
+           data: updateResult.modifiedCount,
+           id: updateResult.upsertedId || "",
+           message: updateResult.modifiedCount > 0 ? "Update successful." : "No document updated."
+       };
+   } catch (e) {
+       return {
+           status: false,
+           mode: "error",
+           data: 0,
+           id: "",
+           message: `Internal Server Error: ${e.message}`
+       };
+   }
+};
+
+export const MongoClientUpdateManyWithArrayFilter = async (collection, query = {}, update = {}, arrayFilters = []) => {
+    if (Object.keys(update).length === 0) throw new Error("Update options cannot be empty");
+    if (Object.keys(query).length === 0) throw new Error("Query cannot be empty");
+    if (arrayFilters.length === 0) throw new Error("Array filters cannot be empty");
+    
+    try {
+        const client = await clientPromise;
+        const db = client.db(DatabaseName);
+        const updateResult = await db.collection(collection).updateMany(query, update, { arrayFilters });
+        
+        return {
+            status: updateResult.modifiedCount > 0,
+            mode: "update",
+            data: updateResult.modifiedCount,
+            id: updateResult.upsertedId || "",
+            message: updateResult.modifiedCount > 0 ? "Update successful." : "No documents updated."
+        };
+    } catch (e) {
+        return {
+            status: false,
+            mode: "error",
+            data: 0,
+            id: "",
+            message: `Internal Server Error: ${e.message}`
+        };
+    }
+};
+
+
+/**
+ * Counts the number of documents in a MongoDB collection based on a query.
+ */
+export const MongoClientDocumentCount = async (collection, query = {}) => {
+    try {
+        const client = await clientPromise;
+        const db = client.db(DatabaseName);
+        const count = await db.collection(collection).countDocuments(query);
+        
+        return {
+            status: true,
+            mode: "count",
+            data: count,
+            id: 1,
+            message: count > 0 ? "Documents found." : "No documents found."
+        };
+    } catch (e) {
+        return {
+            status: false,
+            mode: "error",
+            data: 0,
+            id: 0,
+            message: `Internal Server Error: ${e.message}`
+        };
+    }
+};

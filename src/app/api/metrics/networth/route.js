@@ -1,11 +1,11 @@
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
-import { MongoApiFind } from "@/helpers/mongo";
+import { MongoClientFind } from "@/helpers/mongo";
 
 export async function GET(req) {
   try {
     const user_id = "demo-user";
-    const { status, data, message } = await MongoApiFind("accounts", { user_id });
+    const { status, data, message } = await MongoClientFind("accounts", { user_id });
     if (!status) throw new Error(message);
 
     const sumAccounts = data.reduce(

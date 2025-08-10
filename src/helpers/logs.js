@@ -1,9 +1,8 @@
-import { getDb } from "@/lib/mongo";
+import { MongoClientInsertOne } from "./mongo";
 
 export default async function logs(request, message, status, payload) {
   try {
-    const db = await getDb();
-    await db.collection("logs").insertOne({
+    await MongoClientInsertOne("logs", {
       path: request?.url || "",
       method: request?.method || "",
       status,
@@ -12,7 +11,7 @@ export default async function logs(request, message, status, payload) {
       headers: Object.fromEntries(new Headers(request.headers).entries()),
       created_on: new Date(),
     });
-  } catch {
-    // swallow
+  } catch (e) {
+    console.error(e);
   }
 }
