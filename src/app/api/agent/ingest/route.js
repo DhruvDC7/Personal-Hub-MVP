@@ -1,7 +1,13 @@
 import { ObjectId } from "mongodb";
-import { getDb } from "@/lib/mongo";
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
+import {
+  MongoApiFind,
+  MongoApiInsertOne,
+  MongoApiUpdateOne,
+} from "@/helpers/mongo";
+
+const toObjectId = (id) => ({ $oid: String(id) });
 
 // Naive parsers for MVP
 function parseINR(text) {
@@ -27,10 +33,10 @@ function parseCategory(text) {
 
 function findAccountIdByName(accounts, text) {
   const lower = text.toLowerCase();
-  const hit = accounts.find(a => 
+  const hit = accounts.find(a =>
     lower.includes(a.name.toLowerCase().split(" ")[0])
   );
-  return hit?._id || null;
+  return hit?.id || null;
 }
 
 export async function POST(req) {
@@ -45,14 +51,16 @@ export async function POST(req) {
       );
     }
 
-    const db = await getDb();
     const user_id = "demo-user";
-    
-    const accounts = await db
-      .collection("accounts")
-      .find({ user_id })
-      .project({ _id: 1, name: 1 })
-      .toArray();
+
+    const { status, data: accounts } = await MongoApiFind(
+      "accounts",
+      { user_id },
+      { projection: { _id: 1, name: 1 } }
+    );
+    if (!status) {
+      return new Response(errorObject("Internal error", 500), { status: 500 });
+    }
       
     if (!accounts.length) {
       return new Response(
@@ -64,7 +72,7 @@ export async function POST(req) {
     const amount = parseINR(text);
     const type = parseType(text);
     const category = parseCategory(text);
-    const account_id = findAccountIdByName(accounts, text) || accounts[0]._id;
+    const account_id = findAccountIdByName(accounts, text) || accounts[0].id;
 
     if (!amount) {
       return new Response(
@@ -87,8 +95,14 @@ export async function POST(req) {
       created_on: new Date(),
       updated_on: new Date(),
     };
-    
-    const r = await db.collection("transactions").insertOne(doc);
+
+    const { status: insertStatus, id } = await MongoApiInsertOne(
+      "transactions",
+      doc
+    );
+    if (!insertStatus) {
+      return new Response(errorObject("Internal error", 500), { status: 500 });
+    }
 
     // Update account balance
     let delta = 0;
@@ -96,17 +110,18 @@ export async function POST(req) {
     if (type === "income") delta = amount;
     
     if (delta !== 0) {
-      await db.collection("accounts").updateOne(
-        { _id: new ObjectId(account_id), user_id },
-        { 
-          $inc: { balance: delta }, 
-          $set: { updated_on: new Date() } 
+      await MongoApiUpdateOne(
+        "accounts",
+        { _id: toObjectId(account_id), user_id },
+        {
+          $inc: { balance: delta },
+          $set: { updated_on: new Date() },
         }
       );
     }
 
     return Response.json(
-      { status: true, data: { _id: r.insertedId, ...doc } },
+      { status: true, data: { id, ...doc } },
       { status: 201 }
     );
   } catch (e) {

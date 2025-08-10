@@ -57,15 +57,15 @@ export default function TransactionsPage() {
     }
 
     try {
-      await api(`/api/transactions/${transactionId}`, { method: 'DELETE' });
+      await api(`/api/transactions?id=${transactionId}`, { method: 'DELETE' });
       showToast({ type: 'success', message: 'Transaction deleted successfully' });
       fetchTransactions();
       router.refresh();
     } catch (error) {
       console.error('Error deleting transaction:', error);
-      showToast({ 
-        type: 'error', 
-        message: error.message || 'Failed to delete transaction. Please try again.' 
+      showToast({
+        type: 'error',
+        message: error.message || 'Failed to delete transaction. Please try again.'
       });
     }
   };
@@ -114,7 +114,8 @@ export default function TransactionsPage() {
     { 
       key: 'account', 
       header: 'Account',
-      render: (txn) => accounts.find(a => a._id === txn.account)?.name || 'Unknown'
+      render: (txn) =>
+        accounts.find(a => a.id === (txn.account_id?.$oid || txn.account_id))?.name || 'Unknown'
     },
     { 
       key: 'amount', 
@@ -140,7 +141,7 @@ export default function TransactionsPage() {
             Edit
           </button>
           <button
-            onClick={() => handleDelete(txn._id)}
+            onClick={() => handleDelete(txn.id)}
             className="text-red-600 hover:text-red-500"
           >
             Delete
@@ -218,7 +219,7 @@ export default function TransactionsPage() {
             >
               <option value="">All Accounts</option>
               {accounts.map((acc) => (
-                <option key={acc._id} value={acc._id}>
+                <option key={acc.id} value={acc.id}>
                   {acc.name}
                 </option>
               ))}

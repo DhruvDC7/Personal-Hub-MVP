@@ -1,18 +1,15 @@
-import { getDb } from "@/lib/mongo";
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
+import { MongoApiFind } from "@/helpers/mongo";
 
 export async function GET(req) {
   try {
-    const db = await getDb();
     const user_id = "demo-user";
-    
-    const accounts = await db.collection("accounts")
-      .find({ user_id })
-      .toArray();
-      
-    const sumAccounts = accounts.reduce(
-      (sum, account) => sum + (Number(account.balance) || 0), 
+    const { status, data, message } = await MongoApiFind("accounts", { user_id });
+    if (!status) throw new Error(message);
+
+    const sumAccounts = data.reduce(
+      (sum, account) => sum + (Number(account.balance) || 0),
       0
     );
     
