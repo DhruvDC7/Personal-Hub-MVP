@@ -7,22 +7,29 @@ import {
   MongoClientInsertOne,
   MongoClientUpdateOne,
   MongoClientDeleteOne,
+  MongoClientDocumentCount,
 } from "@/helpers/mongo";
+import { requireAuth } from "@/middleware/auth";
+
+const toObjectId = (id) => id;
 
 export async function GET(req) {
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(2, 9);
   
   try {
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     const { status, data, message } = await MongoClientFind(
       "accounts",
-      { user_id },
+      { user_id: userId },
       { sort: { created_on: -1 } }
     );
     if (!status) throw new Error(message);
     return Response.json({ status: true, data });
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     const errorMsg = e?.message || "GET /accounts failed";
     await logs(req, errorMsg, 500);
     return new Response(errorObject("Internal error", 500), { status: 500 });
@@ -42,10 +49,10 @@ export async function POST(req) {
   }
   
   try {
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     const doc = {
       ...value,
-      user_id,
+      user_id: userId,
       created_on: new Date(),
       updated_on: new Date(),
     };
@@ -56,6 +63,9 @@ export async function POST(req) {
       { status: 201 }
     );
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     const errorMsg = e?.message || "POST /accounts failed";
     await logs(req, errorMsg, 500, body);
     return new Response(errorObject("Internal error", 500), { status: 500 });
@@ -72,7 +82,7 @@ export async function PUT(req) {
     if (!id) {
       return new Response(errorObject("id is required", 400), { status: 400 });
     }
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     const set = { updated_on: new Date() };
     if (typeof name === "string") set.name = name;
     if (typeof type === "string") set.type = type;
@@ -81,12 +91,15 @@ export async function PUT(req) {
     if (meta && typeof meta === "object") set.meta = meta;
     const { status, message } = await MongoClientUpdateOne(
       "accounts",
-      { _id: id, user_id },
+      { _id: id, user_id: userId },
       { $set: set }
     );
     if (!status) throw new Error(message);
     return Response.json({ status: true, data: { id, ...set } });
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     const errorMsg = e?.message || "PUT /accounts failed";
     await logs(req, errorMsg, 500, body);
     return new Response(errorObject("Internal error", 500), { status: 500 });
@@ -108,10 +121,10 @@ export async function DELETE(req) {
     } catch {
       return new Response(errorObject("invalid id", 400), { status: 400 });
     }
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     const { status: countStatus, data: count } = await MongoClientDocumentCount(
       "transactions",
-      { account_id: toObjectId(id), user_id }
+      { account_id: id, user_id: userId }
     );
     if (!countStatus) {
       return new Response(errorObject("Internal error", 500), { status: 500 });
@@ -124,11 +137,14 @@ export async function DELETE(req) {
     }
     const { status: delStatus, message } = await MongoClientDeleteOne(
       "accounts",
-      { _id: toObjectId(id), user_id }
+      { _id: id, user_id: userId }
     );
     if (!delStatus) throw new Error(message);
     return Response.json({ status: true, data: { id } });
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     const errorMsg = e?.message || "DELETE /accounts failed";
     await logs(req, errorMsg, 500, { id });
     return new Response(errorObject("Internal error", 500), { status: 500 });

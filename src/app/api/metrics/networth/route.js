@@ -1,11 +1,12 @@
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
 import { MongoClientFind } from "@/helpers/mongo";
+import { requireAuth } from "@/middleware/auth";
 
 export async function GET(req) {
   try {
-    const user_id = "demo-user";
-    const { status, data, message } = await MongoClientFind("accounts", { user_id });
+    const { userId } = requireAuth(req);
+    const { status, data, message } = await MongoClientFind("accounts", { user_id: userId });
     if (!status) throw new Error(message);
 
     const sumAccounts = data.reduce(
@@ -21,6 +22,9 @@ export async function GET(req) {
       } 
     });
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     await logs(req, e?.message || "GET /metrics/networth failed", 500);
     return new Response(errorObject("Internal error", 500), { status: 500 });
   }
