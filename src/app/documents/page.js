@@ -35,15 +35,15 @@ export default function DocumentsPage() {
     }
 
     try {
-      await api(`/api/documents/${documentId}`, { method: 'DELETE' });
+      await api(`/api/documents?id=${documentId}`, { method: 'DELETE' });
       showToast({ type: 'success', message: 'Document deleted successfully' });
       fetchDocuments();
       router.refresh();
     } catch (error) {
       console.error('Error deleting document:', error);
-      showToast({ 
-        type: 'error', 
-        message: error.message || 'Failed to delete document. Please try again.' 
+      showToast({
+        type: 'error',
+        message: error.message || 'Failed to delete document. Please try again.'
       });
     }
   };
@@ -106,7 +106,7 @@ export default function DocumentsPage() {
             View
           </a>
           <button
-            onClick={() => handleDelete(doc._id)}
+            onClick={() => handleDelete(doc.id)}
             className="text-red-600 hover:text-red-500"
           >
             Delete

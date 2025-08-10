@@ -35,15 +35,15 @@ export default function AccountsPage() {
     }
 
     try {
-      await api(`/api/accounts/${accountId}`, { method: 'DELETE' });
+      await api(`/api/accounts?id=${accountId}`, { method: 'DELETE' });
       showToast({ type: 'success', message: 'Account deleted successfully' });
       fetchAccounts();
       router.refresh();
     } catch (error) {
       console.error('Error deleting account:', error);
-      showToast({ 
-        type: 'error', 
-        message: error.message || 'Failed to delete account. Please try again.' 
+      showToast({
+        type: 'error',
+        message: error.message || 'Failed to delete account. Please try again.'
       });
     }
   };
@@ -61,7 +61,7 @@ export default function AccountsPage() {
       header: 'Account Name',
       render: (account) => (
         <Link 
-          href={`/transactions?account=${account._id}`}
+          href={`/transactions?account=${account.id}`}
           className="text-sky-400 hover:text-sky-500"
         >
           {account.name}
@@ -97,7 +97,7 @@ export default function AccountsPage() {
             Edit
           </button>
           <button
-            onClick={() => handleDelete(account._id)}
+            onClick={() => handleDelete(account.id)}
             className="text-red-600 hover:text-red-500"
           >
             Delete

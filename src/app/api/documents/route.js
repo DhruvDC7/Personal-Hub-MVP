@@ -1,8 +1,16 @@
 import crypto from "crypto";
-import { getDb } from "@/lib/mongo";
+import { ObjectId } from "mongodb";
 import { presignPut, deleteFromS3 } from "@/lib/s3";
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
+import {
+  MongoApiFind,
+  MongoApiInsertOne,
+  MongoApiFindOne,
+  MongoApiDeleteOne,
+} from "@/helpers/mongo";
+
+const toObjectId = (id) => ({ $oid: String(id) });
 
 const bucket = process.env.AWS_S3_BUCKET;
 const region = process.env.AWS_REGION;
@@ -15,16 +23,17 @@ export async function GET(req) {
   console.log(`[API] [${requestId}] GET /api/documents - Starting`);
   
   try {
-    const db = await getDb();
     const user_id = "demo-user";
-    const items = await db
-      .collection("documents")
-      .find({ user_id })
-      .sort({ created_on: -1 })
-      .toArray();
+    const { status, data, message } = await MongoApiFind(
+      "documents",
+      { user_id },
+      { sort: { created_on: -1 } }
+    );
+    if (!status) throw new Error(message);
+    const items = data;
 
     const mapped = items.map((d) => ({
-      _id: d._id,
+      id: d.id,
       title: d.title,
       tags: d.tags || [],
       contentType: d.content_type || null,
@@ -71,7 +80,6 @@ export async function POST(req) {
     const key = `u/${user_id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
     const uploadUrl = await presignPut(bucket, key, contentType);
 
-    const db = await getDb();
     const doc = {
       user_id,
       title: title || filename,
@@ -81,8 +89,9 @@ export async function POST(req) {
       status: "pending",
       created_on: new Date(),
     };
-    const r = await db.collection("documents").insertOne(doc);
-    console.log(`[API] [${requestId}] POST /api/documents - Created document ${r.insertedId} (${Date.now() - startTime}ms)`, { 
+    const { status, id, message } = await MongoApiInsertOne("documents", doc);
+    if (!status) throw new Error(message);
+    console.log(`[API] [${requestId}] POST /api/documents - Created document ${id} (${Date.now() - startTime}ms)`, {
       title: doc.title,
       contentType: doc.content_type,
       size: doc.storage?.size || 0
@@ -90,7 +99,7 @@ export async function POST(req) {
 
     return Response.json({
       status: true,
-      data: { _id: r.insertedId, uploadUrl, bucket, key, title: doc.title, tags },
+      data: { id, uploadUrl, bucket, key, title: doc.title, tags },
     });
   } catch (e) {
     const errorMsg = e?.message || "POST /documents failed";
@@ -101,7 +110,7 @@ export async function POST(req) {
   }
 }
 
-// DELETE /api/documents?id=<id> OR body { _id }
+// DELETE /api/documents?id=<id> OR body { id }
 // Deletes from S3 and DB
 export async function DELETE(req) {
   const startTime = Date.now();
@@ -112,24 +121,26 @@ export async function DELETE(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
-    const id = body?._id || searchParams.get("id");
+    const id = body?.id || searchParams.get("id");
     if (!id) {
       console.error(`[API] [${requestId}] DELETE /api/documents - Missing ID (${Date.now() - startTime}ms)`);
       return new Response(errorObject("id is required", 400), { status: 400 });
     }
 
-    const { ObjectId } = await import("mongodb");
-    let _id;
     try {
-      _id = new ObjectId(String(id));
+      new ObjectId(String(id));
     } catch {
       return new Response(errorObject("invalid id", 400), { status: 400 });
     }
 
-    const db = await getDb();
     const user_id = "demo-user";
 
-    const doc = await db.collection("documents").findOne({ _id, user_id });
+    const { status, data, message } = await MongoApiFindOne(
+      "documents",
+      { _id: toObjectId(id), user_id }
+    );
+    if (!status) throw new Error(message);
+    const doc = data;
     if (!doc) {
       console.error(`[API] [${requestId}] DELETE /api/documents - Document not found (${Date.now() - startTime}ms)`, { documentId: id });
       return new Response(errorObject("document not found", 404), {
@@ -150,12 +161,16 @@ export async function DELETE(req) {
       }
     }
 
-    await db.collection("documents").deleteOne({ _id, user_id });
+    const { status: delStatus, message: delMsg } = await MongoApiDeleteOne(
+      "documents",
+      { _id: toObjectId(id), user_id }
+    );
+    if (!delStatus) throw new Error(delMsg);
     console.log(`[API] [${requestId}] DELETE /api/documents - Deleted document ${id} (${Date.now() - startTime}ms)`, {
       title: doc.title,
       storage: doc.storage ? 'has_storage' : 'no_storage'
     });
-    return Response.json({ status: true, data: { _id: id } });
+    return Response.json({ status: true, data: { id } });
   } catch (e) {
     const errorMsg = e?.message || "DELETE /documents failed";
     console.error(`[API] [${requestId}] DELETE /api/documents - Error (${Date.now() - startTime}ms):`, errorMsg);

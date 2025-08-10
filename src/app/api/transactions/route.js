@@ -1,9 +1,17 @@
 import dayjs from "dayjs";
 import { ObjectId } from "mongodb";
-import { getDb } from "@/lib/mongo";
 import { transactionSchema } from "@/models/schemas";
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
+import {
+  MongoApiFind,
+  MongoApiInsertOne,
+  MongoApiUpdateOne,
+  MongoApiFindOne,
+  MongoApiDeleteOne,
+} from "@/helpers/mongo";
+
+const toObjectId = (id) => ({ $oid: String(id) });
 
 export async function GET(req) {
   const startTime = Date.now();
@@ -12,7 +20,6 @@ export async function GET(req) {
   console.log(`[API] [${requestId}] GET /api/transactions - Starting`);
   
   try {
-    const db = await getDb();
     const user_id = "demo-user";
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month");
@@ -33,7 +40,7 @@ export async function GET(req) {
     if (type) query.type = type;
     if (account) {
       try {
-        query.account_id = new ObjectId(String(account));
+        query.account_id = toObjectId(account);
       } catch {
         return new Response(errorObject("invalid account", 400), {
           status: 400,
@@ -41,12 +48,13 @@ export async function GET(req) {
       }
     }
 
-    const cursor = db
-      .collection("transactions")
-      .find(query)
-      .sort({ happened_on: -1 });
-    if (limit) cursor.limit(limit);
-    const items = await cursor.toArray();
+    const { status, data, message } = await MongoApiFind(
+      "transactions",
+      query,
+      { sort: { happened_on: -1 }, ...(limit ? { limit } : {}) }
+    );
+    if (!status) throw new Error(message);
+    const items = data;
       
     console.log(`[API] [${requestId}] GET /api/transactions - Success (${Date.now() - startTime}ms) - Found ${items.length} items`);
     return Response.json({ status: true, data: items });
@@ -80,7 +88,6 @@ export async function POST(req) {
   }
   
   try {
-    const db = await getDb();
     const user_id = "demo-user";
 
     let accId;
@@ -92,14 +99,14 @@ export async function POST(req) {
       });
     }
 
-    const acc = await db.collection("accounts").findOne({
-      _id: accId,
-      user_id,
-    });
-    
-    if (!acc) {
+    const { status: accStatus, data: acc } = await MongoApiFindOne(
+      "accounts",
+      { _id: toObjectId(accId.toString()), user_id }
+    );
+
+    if (!accStatus || !acc) {
       return new Response(
-        errorObject("account_id invalid or not found", 404), 
+        errorObject("account_id invalid or not found", 404),
         { status: 404 }
       );
     }
@@ -113,8 +120,9 @@ export async function POST(req) {
       updated_on: new Date(),
     };
     
-    const r = await db.collection("transactions").insertOne(doc);
-    console.log(`[API] [${requestId}] POST /api/transactions - Created transaction ${r.insertedId} (${Date.now() - startTime}ms)`);
+    const { status, id, message } = await MongoApiInsertOne("transactions", doc);
+    if (!status) throw new Error(message);
+    console.log(`[API] [${requestId}] POST /api/transactions - Created transaction ${id} (${Date.now() - startTime}ms)`);
 
     // Update account balance
     console.log(`[API] [${requestId}] POST /api/transactions - Updating account balance, delta: ${delta}`);
@@ -123,17 +131,18 @@ export async function POST(req) {
     if (value.type === "income") delta = value.amount;
     
     if (delta !== 0) {
-      await db.collection("accounts").updateOne(
-        { _id: accId, user_id },
-        { 
-          $inc: { balance: delta }, 
-          $set: { updated_on: new Date() } 
+      await MongoApiUpdateOne(
+        "accounts",
+        { _id: toObjectId(accId.toString()), user_id },
+        {
+          $inc: { balance: delta },
+          $set: { updated_on: new Date() },
         }
       );
     }
 
     return Response.json(
-      { status: true, data: { _id: r.insertedId, ...doc } },
+      { status: true, data: { id, ...doc } },
       { status: 201 }
     );
   } catch (e) {
@@ -157,19 +166,22 @@ export async function PUT(req) {
       body.account_id = body.account;
       delete body.account;
     }
-    const { _id, account_id, type, amount, currency, category, note, tags, happened_on, attachment_ids } = body || {};
-    if (!_id) return new Response(errorObject("_id is required", 400), { status: 400 });
+    const { id, account_id, type, amount, currency, category, note, tags, happened_on, attachment_ids } = body || {};
+    if (!id) return new Response(errorObject("id is required", 400), { status: 400 });
 
-    const db = await getDb();
     const user_id = "demo-user";
     let txId;
     try {
-      txId = new ObjectId(String(_id));
+      txId = new ObjectId(String(id));
     } catch {
-      return new Response(errorObject("invalid _id", 400), { status: 400 });
+      return new Response(errorObject("invalid id", 400), { status: 400 });
     }
-    const existing = await db.collection("transactions").findOne({ _id: txId, user_id });
-    if (!existing) return new Response(errorObject("transaction not found", 404), { status: 404 });
+    const { status: existingStatus, data: existing } = await MongoApiFindOne(
+      "transactions",
+      { _id: toObjectId(txId.toString()), user_id }
+    );
+    if (!existingStatus || !existing)
+      return new Response(errorObject("transaction not found", 404), { status: 404 });
 
     // Prepare update fields
     const set = { updated_on: new Date() };
@@ -193,8 +205,12 @@ export async function PUT(req) {
 
     // Validate new account ownership if changed
     const newAccountId = set.account_id ? set.account_id : existing.account_id;
-    const acc = await db.collection("accounts").findOne({ _id: newAccountId, user_id });
-    if (!acc) return new Response(errorObject("account_id invalid or not found", 404), { status: 404 });
+    const { status: accStatus, data: acc } = await MongoApiFindOne(
+      "accounts",
+      { _id: toObjectId(newAccountId.toString()), user_id }
+    );
+    if (!accStatus || !acc)
+      return new Response(errorObject("account_id invalid or not found", 404), { status: 404 });
 
     // Compute balance adjustments
     const prevSign = existing.type === "expense" ? -1 : existing.type === "income" ? 1 : 0;
@@ -207,22 +223,32 @@ export async function PUT(req) {
 
     const ops = [];
     if (prevSign !== 0) {
-      ops.push(db.collection("accounts").updateOne(
-        { _id: prevAccId, user_id },
-        { $inc: { balance: -(prevSign * existing.amount) }, $set: { updated_on: new Date() } }
-      ));
+      ops.push(
+        MongoApiUpdateOne(
+          "accounts",
+          { _id: toObjectId(prevAccId.toString()), user_id },
+          { $inc: { balance: -(prevSign * existing.amount) }, $set: { updated_on: new Date() } }
+        )
+      );
     }
     if (nextSign !== 0) {
-      ops.push(db.collection("accounts").updateOne(
-        { _id: nextAccId, user_id },
-        { $inc: { balance: nextSign * nextAmount }, $set: { updated_on: new Date() } }
-      ));
+      ops.push(
+        MongoApiUpdateOne(
+          "accounts",
+          { _id: toObjectId(nextAccId.toString()), user_id },
+          { $inc: { balance: nextSign * nextAmount }, $set: { updated_on: new Date() } }
+        )
+      );
     }
     if (ops.length) await Promise.all(ops);
 
-    await db.collection("transactions").updateOne({ _id: txId, user_id }, { $set: set });
-    console.log(`[API] [${requestId}] PUT /api/transactions - Updated transaction ${_id} (${Date.now() - startTime}ms)`);
-    return Response.json({ status: true, data: { _id, ...set } });
+    await MongoApiUpdateOne(
+      "transactions",
+      { _id: toObjectId(txId.toString()), user_id },
+      { $set: set }
+    );
+    console.log(`[API] [${requestId}] PUT /api/transactions - Updated transaction ${id} (${Date.now() - startTime}ms)`);
+    return Response.json({ status: true, data: { id, ...set } });
   } catch (e) {
     const errorMsg = e?.message || "PUT /transactions failed";
     console.error(`[API] [${requestId}] PUT /api/transactions - Error (${Date.now() - startTime}ms):`, errorMsg);
@@ -241,33 +267,37 @@ export async function DELETE(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
-    const id = body?._id || searchParams.get("id");
+    const id = body?.id || searchParams.get("id");
     if (!id) return new Response(errorObject("id is required", 400), { status: 400 });
 
-    let _id;
+    let objId;
     try {
-      _id = new ObjectId(String(id));
+      objId = new ObjectId(String(id));
     } catch {
       return new Response(errorObject("invalid id", 400), { status: 400 });
     }
 
-    const db = await getDb();
     const user_id = "demo-user";
-    const tx = await db.collection("transactions").findOne({ _id, user_id });
-    if (!tx) return new Response(errorObject("transaction not found", 404), { status: 404 });
+    const { status: txStatus, data: tx } = await MongoApiFindOne(
+      "transactions",
+      { _id: toObjectId(objId.toString()), user_id }
+    );
+    if (!txStatus || !tx)
+      return new Response(errorObject("transaction not found", 404), { status: 404 });
 
     // reverse balance
     const sign = tx.type === "expense" ? -1 : tx.type === "income" ? 1 : 0;
     if (sign !== 0) {
-      await db.collection("accounts").updateOne(
-        { _id: tx.account_id, user_id },
+      await MongoApiUpdateOne(
+        "accounts",
+        { _id: toObjectId(tx.account_id.toString()), user_id },
         { $inc: { balance: -(sign * tx.amount) }, $set: { updated_on: new Date() } }
       );
     }
 
-    await db.collection("transactions").deleteOne({ _id, user_id });
+    await MongoApiDeleteOne("transactions", { _id: toObjectId(objId.toString()), user_id });
     console.log(`[API] [${requestId}] DELETE /api/transactions - Deleted transaction ${id} (${Date.now() - startTime}ms)`);
-    return Response.json({ status: true, data: { _id: id } });
+    return Response.json({ status: true, data: { id } });
   } catch (e) {
     const errorMsg = e?.message || "DELETE /transactions failed";
     console.error(`[API] [${requestId}] DELETE /api/transactions - Error (${Date.now() - startTime}ms):`, errorMsg);
