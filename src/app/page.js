@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AddTransactionButton from '@/components/AddTransactionButton';
 import { formatINR } from '@/lib/format';
@@ -14,45 +14,40 @@ function Dashboard() {
   const [accountCount, setAccountCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   
-  useEffect(() => {
-    // No-op cleanup
-    return () => {};
-  }, []);
-
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch net worth data
-        const netWorthResponse = await fetch('/api/metrics/networth');
-        const netWorthData = await netWorthResponse.json();
-        
-        // Fetch recent transactions
-        const transactionsResponse = await fetch('/api/transactions?limit=5');
-        const transactionsData = await transactionsResponse.json();
-        
-        // Fetch accounts data
-        const accountsResponse = await fetch('/api/accounts');
-        const accountsData = await accountsResponse.json();
-        
-        if (netWorthData.status) {
-          setNetWorth(netWorthData.data);
-        }
-        
-        if (accountsData.status) {
-          setAccountCount(accountsData.data.length);
-        }
-        
-        setRecentTransactions(transactionsData.data || []);
-      } catch (error) {
-        // Error is handled by the UI state
-      } finally {
-        setIsLoading(false);
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Fetch net worth data
+      const netWorthResponse = await fetch('/api/metrics/networth');
+      const netWorthData = await netWorthResponse.json();
+      
+      // Fetch recent transactions
+            const transactionsResponse = await fetch('/api/transactions?limit=5&sort=created_on');
+      const transactionsData = await transactionsResponse.json();
+      
+      // Fetch accounts data
+      const accountsResponse = await fetch('/api/accounts');
+      const accountsData = await accountsResponse.json();
+      
+      if (netWorthData.status) {
+        setNetWorth(netWorthData.data);
       }
-    };
-
-    loadData();
+      
+      if (accountsData.status) {
+        setAccountCount(accountsData.data.length);
+      }
+      
+      setRecentTransactions(transactionsData.data || []);
+    } catch (error) {
+      // Error is handled by the UI state
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   if (isLoading) {
     return (
@@ -63,7 +58,7 @@ function Dashboard() {
   }
 
   const transactionColumns = [
-    { key: 'date', header: 'Date', render: (txn) => new Date(txn.happened_on).toLocaleDateString() },
+        { key: 'date', header: 'Date', render: (txn) => new Date(txn.created_on).toLocaleDateString() },
     { key: 'description', header: 'Description', render: (txn) => txn.note || txn.category },
     { 
       key: 'amount', 
@@ -80,13 +75,13 @@ function Dashboard() {
     <div>
       <PageHeader 
         title="Dashboard"
-        actions={<AddTransactionButton />}
+        actions={<AddTransactionButton onTransactionAdded={loadData} />}
       />
 
       <div className="grid grid-cols-1 gap-6 mt-6 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <h3 className="text-lg font-medium text-slate-50">Net Worth</h3>
-          <p className="mt-2 text-3xl font-semibold">
+          <p className={`mt-2 text-3xl font-semibold ${netWorth.networth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatINR(netWorth.networth)}
           </p>
         </Card>

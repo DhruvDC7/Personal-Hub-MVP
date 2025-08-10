@@ -12,11 +12,13 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     amount: initialData.amount || '',
     category: initialData.category || '',
     note: initialData.note || '',
-    happened_on: initialData.happened_on || new Date().toISOString().slice(0, 16),
   });
   const [accounts, setAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [aiNote, setAiNote] = useState('');
+  const [isParsing, setIsParsing] = useState(false);
+  const [isFormVisible, setIsFormVisible] = useState(false);
   const router = useRouter();
 
   const transactionTypes = [
@@ -65,6 +67,35 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       ...prev,
       [name]: type === 'number' ? parseFloat(value) || 0 : value,
     }));
+  };
+
+  const handleAiParse = async () => {
+    if (!aiNote.trim()) {
+      showToast({ type: 'error', message: 'Please enter a note to parse with AI.' });
+      return;
+    }
+    setIsParsing(true);
+    try {
+      const parsedData = await api('/api/transactions/parse-with-ai', {
+        method: 'POST',
+        body: { note: aiNote },
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        amount: parsedData.amount || prev.amount,
+        type: parsedData.type || prev.type,
+        category: parsedData.category || prev.category,
+        note: aiNote, // Store the original prompt in the notes
+      }));
+
+      showToast({ type: 'success', message: 'Form pre-filled with AI!' });
+      setIsFormVisible(true);
+    } catch (error) { 
+      showToast({ type: 'error', message: error.message || 'Failed to parse with AI' });
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -117,7 +148,33 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <>
+      <div className="mb-4">
+        <label htmlFor="ai-note" className="block text-sm font-medium text-slate-300">
+          Describe your transaction with AI
+        </label>
+        <div className="mt-1 flex rounded-md shadow-sm">
+          <textarea
+            id="ai-note"
+            name="ai-note"
+            rows={2}
+            value={aiNote}
+            onChange={(e) => setAiNote(e.target.value)}
+            className="flex-1 block w-full rounded-none rounded-l-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 focus:border-sky-400 sm:text-sm"
+            placeholder="e.g., paid 500 for rent"
+          />
+          <button
+            type="button"
+            onClick={handleAiParse}
+            disabled={isParsing}
+            className="inline-flex items-center px-4 py-2 border border-l-0 border-sky-400 rounded-r-md bg-sky-400 text-sm font-medium text-white hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0 disabled:opacity-50"
+          >
+            {isParsing ? 'Parsing...' : 'Fill with AI'}
+          </button>
+        </div>
+      </div>
+      {isFormVisible && (
+        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
       <div>
         <label htmlFor="type" className="block text-sm font-medium text-slate-300">
           Transaction Type
@@ -204,21 +261,6 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       </div>
 
       <div>
-        <label htmlFor="happened_on" className="block text-sm font-medium text-slate-300">
-          Date & Time
-        </label>
-        <input
-          type="datetime-local"
-          id="happened_on"
-          name="happened_on"
-          value={formData.happened_on}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
-          required
-        />
-      </div>
-
-      <div>
         <label htmlFor="note" className="block text-sm font-medium text-slate-300">
           Note (Optional)
         </label>
@@ -249,5 +291,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         </button>
       </div>
     </form>
+      )}
+    </>
   );
 }

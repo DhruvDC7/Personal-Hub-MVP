@@ -16,6 +16,5 @@ export const transactionSchema = Joi.object({
   category: Joi.string().trim().required(),
   note: Joi.string().allow("").default(""),
   tags: Joi.array().items(Joi.string().trim()).default([]),
-  happened_on: Joi.date().iso().required(),
   attachment_ids: Joi.array().items(Joi.string().length(24)).default([]),
 });

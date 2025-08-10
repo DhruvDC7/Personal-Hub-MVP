@@ -4,7 +4,7 @@ import { useState } from "react";
 import Modal from "@/components/Modal";
 import TransactionForm from "@/components/Forms/TransactionForm";
 
-export default function AddTransactionButton() {
+export default function AddTransactionButton({ onTransactionAdded }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -17,7 +17,12 @@ export default function AddTransactionButton() {
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title="Add New Transaction">
         <TransactionForm
-          onSuccess={() => setOpen(false)}
+          onSuccess={() => {
+            setOpen(false);
+            if (onTransactionAdded) {
+              onTransactionAdded();
+            }
+          }}
           onCancel={() => setOpen(false)}
         />
       </Modal>
