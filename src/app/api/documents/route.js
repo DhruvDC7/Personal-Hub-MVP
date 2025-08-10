@@ -9,6 +9,9 @@ import {
   MongoClientFindOne,
   MongoClientDeleteOne,
 } from "@/helpers/mongo";
+import { requireAuth } from "@/middleware/auth";
+
+const toObjectId = (id) => id;
 
 const bucket = process.env.AWS_S3_BUCKET;
 const region = process.env.AWS_REGION;
@@ -19,10 +22,10 @@ export async function GET(req) {
   const requestId = Math.random().toString(36).substring(2, 9);
   
   try {
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     const { status, data, message } = await MongoClientFind(
       "documents",
-      { user_id },
+      { user_id: userId },
       { sort: { created_on: -1 } }
     );
 
@@ -53,6 +56,9 @@ export async function GET(req) {
 
     return Response.json({ status: true, data: mapped });
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     await logs(req, `GET /documents failed: ${e.message}`, 500);
     return new Response(errorObject("Failed to fetch documents", 500), { status: 500 });
   }
@@ -74,13 +80,13 @@ export async function POST(req) {
       });
     }
 
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
     const ext = filename.split(".").pop();
-    const key = `u/${user_id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const key = `u/${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
     const uploadUrl = await presignPut(bucket, key, contentType);
 
     const doc = {
-      user_id,
+      user_id: userId,
       title: title || filename,
       tags,
       content_type: contentType,
@@ -95,6 +101,9 @@ export async function POST(req) {
       data: { id, uploadUrl, bucket, key, title: doc.title, tags },
     });
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     const errorMsg = e?.message || "POST /documents failed";
     await logs(req, errorMsg, 500);
     return new Response(errorObject("Internal error", 500), { status: 500 });
@@ -121,11 +130,11 @@ export async function DELETE(req) {
       return new Response(errorObject("invalid id", 400), { status: 400 });
     }
 
-    const user_id = "demo-user";
+    const { userId } = requireAuth(req);
 
     const { status, data, message } = await MongoClientFindOne(
       "documents",
-      { _id: toObjectId(id), user_id }
+      { _id: toObjectId(id), user_id: userId }
     );
     if (!status) throw new Error(message);
     const doc = data;
@@ -148,11 +157,14 @@ export async function DELETE(req) {
 
     const { status: delStatus, message: delMsg } = await MongoClientDeleteOne(
       "documents",
-      { _id: toObjectId(id), user_id }
+      { _id: toObjectId(id), user_id: userId }
     );
     if (!delStatus) throw new Error(delMsg);
     return Response.json({ status: true, data: { id } });
   } catch (e) {
+    if (e.status === 401) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
     const errorMsg = e?.message || "DELETE /documents failed";
     await logs(req, errorMsg, 500);
     return new Response(errorObject("Internal error", 500), { status: 500 });
