@@ -142,6 +142,5 @@ function Dashboard() {
 }
 
 export default function Page() {
-  console.log('Dashboard component mounted');
   return <Dashboard />;
 }
