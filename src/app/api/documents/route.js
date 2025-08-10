@@ -4,10 +4,10 @@ import { presignPut, deleteFromS3 } from "@/lib/s3";
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
 import {
-  MongoApiFind,
-  MongoApiInsertOne,
-  MongoApiFindOne,
-  MongoApiDeleteOne,
+  MongoClientFind,
+  MongoClientInsertOne,
+  MongoClientFindOne,
+  MongoClientDeleteOne,
 } from "@/helpers/mongo";
 
 const toObjectId = (id) => ({ $oid: String(id) });
@@ -24,7 +24,7 @@ export async function GET(req) {
   
   try {
     const user_id = "demo-user";
-    const { status, data, message } = await MongoApiFind(
+    const { status, data, message } = await MongoClientFind(
       "documents",
       { user_id },
       { sort: { created_on: -1 } }
@@ -89,7 +89,7 @@ export async function POST(req) {
       status: "pending",
       created_on: new Date(),
     };
-    const { status, id, message } = await MongoApiInsertOne("documents", doc);
+    const { status, id, message } = await MongoClientInsertOne("documents", doc);
     if (!status) throw new Error(message);
     console.log(`[API] [${requestId}] POST /api/documents - Created document ${id} (${Date.now() - startTime}ms)`, {
       title: doc.title,
@@ -135,7 +135,7 @@ export async function DELETE(req) {
 
     const user_id = "demo-user";
 
-    const { status, data, message } = await MongoApiFindOne(
+    const { status, data, message } = await MongoClientFindOne(
       "documents",
       { _id: toObjectId(id), user_id }
     );
@@ -161,7 +161,7 @@ export async function DELETE(req) {
       }
     }
 
-    const { status: delStatus, message: delMsg } = await MongoApiDeleteOne(
+    const { status: delStatus, message: delMsg } = await MongoClientDeleteOne(
       "documents",
       { _id: toObjectId(id), user_id }
     );

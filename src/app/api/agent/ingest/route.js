@@ -2,9 +2,9 @@ import { ObjectId } from "mongodb";
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
 import {
-  MongoApiFind,
-  MongoApiInsertOne,
-  MongoApiUpdateOne,
+  MongoClientFind,
+  MongoClientInsertOne,
+  MongoClientUpdateOne,
 } from "@/helpers/mongo";
 
 const toObjectId = (id) => ({ $oid: String(id) });
@@ -53,7 +53,7 @@ export async function POST(req) {
 
     const user_id = "demo-user";
 
-    const { status, data: accounts } = await MongoApiFind(
+    const { status, data: accounts } = await MongoClientFind(
       "accounts",
       { user_id },
       { projection: { _id: 1, name: 1 } }
@@ -96,7 +96,7 @@ export async function POST(req) {
       updated_on: new Date(),
     };
 
-    const { status: insertStatus, id } = await MongoApiInsertOne(
+    const { status: insertStatus, id } = await MongoClientInsertOne(
       "transactions",
       doc
     );
@@ -110,7 +110,7 @@ export async function POST(req) {
     if (type === "income") delta = amount;
     
     if (delta !== 0) {
-      await MongoApiUpdateOne(
+      await MongoClientUpdateOne(
         "accounts",
         { _id: toObjectId(account_id), user_id },
         {

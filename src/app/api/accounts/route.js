@@ -3,11 +3,10 @@ import { accountSchema } from "@/models/schemas";
 import logs from "@/helpers/logs";
 import { errorObject } from "@/helpers/errorObject";
 import {
-  MongoApiFind,
-  MongoApiInsertOne,
-  MongoApiUpdateOne,
-  documentCountMongo,
-  MongoApiDeleteOne,
+  MongoClientFind,
+  MongoClientInsertOne,
+  MongoClientUpdateOne,
+  MongoClientDeleteOne,
 } from "@/helpers/mongo";
 
 const toObjectId = (id) => ({ $oid: String(id) });
@@ -20,7 +19,8 @@ export async function GET(req) {
   
   try {
     const user_id = "demo-user";
-    const { status, data, message } = await MongoApiFind(
+    console.log( "account get hit ");
+    const { status, data, message } = await MongoClientFind(
       "accounts",
       { user_id },
       { sort: { created_on: -1 } }
@@ -62,7 +62,7 @@ export async function POST(req) {
       created_on: new Date(),
       updated_on: new Date(),
     };
-    const { status, id, message } = await MongoApiInsertOne("accounts", doc);
+    const { status, id, message } = await MongoClientInsertOne("accounts", doc);
     if (!status) throw new Error(message);
     console.log(
       `[API] [${requestId}] POST /api/accounts - Created account ${id} (${Date.now() - startTime}ms)`
@@ -104,7 +104,7 @@ export async function PUT(req) {
     if (typeof currency === "string") set.currency = currency;
     if (typeof balance === "number") set.balance = balance;
     if (meta && typeof meta === "object") set.meta = meta;
-    const { status, message } = await MongoApiUpdateOne(
+    const { status, message } = await MongoClientUpdateOne(
       "accounts",
       { _id: toObjectId(id), user_id },
       { $set: set }
@@ -141,7 +141,7 @@ export async function DELETE(req) {
       return new Response(errorObject("invalid id", 400), { status: 400 });
     }
     const user_id = "demo-user";
-    const { status: countStatus, data: count } = await documentCountMongo(
+    const { status: countStatus, data: count } = await MongoClientDocumentCount(
       "transactions",
       { account_id: toObjectId(id), user_id }
     );
@@ -154,7 +154,7 @@ export async function DELETE(req) {
         { status: 409 }
       );
     }
-    const { status: delStatus, message } = await MongoApiDeleteOne(
+    const { status: delStatus, message } = await MongoClientDeleteOne(
       "accounts",
       { _id: toObjectId(id), user_id }
     );
