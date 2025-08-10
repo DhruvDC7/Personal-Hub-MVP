@@ -72,28 +72,40 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     setIsSubmitting(true);
 
     try {
-      const url = initialData._id
-        ? `/api/transactions/${initialData._id}`
-        : '/api/transactions';
+      // Create a new object with account_id instead of account
+      const payload = {
+        ...formData,
+        account_id: formData.account, // Map account to account_id
+        amount: Number(formData.amount),
+      };
+      
+      // Remove the account field as it's not expected by the API
+      delete payload.account;
 
-      const method = initialData._id ? 'PUT' : 'POST';
+      if (initialData._id) {
+        // Update existing transaction
+        await api(`/api/transactions/${initialData._id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        showToast({ type: 'success', message: 'Transaction updated successfully' });
+      } else {
+        // Create new transaction
+        await api('/api/transactions', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        showToast({ type: 'success', message: 'Transaction created successfully' });
+      }
 
-      await api(url, {
-        method,
-        body: {
-          ...formData,
-          amount: parseFloat(formData.amount),
-        },
-      });
-
-      showToast({
-        type: 'success',
-        message: `Transaction ${initialData._id ? 'updated' : 'added'} successfully`,
-      });
-      router.refresh();
       if (onSuccess) onSuccess();
+      router.refresh();
     } catch (error) {
       console.error('Error saving transaction:', error);
+      showToast({
+        type: 'error',
+        message: error.message || 'Failed to save transaction',
+      });
     } finally {
       setIsSubmitting(false);
     }
