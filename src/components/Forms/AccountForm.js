@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
@@ -9,16 +9,32 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
     name: initialData.name || '',
     type: initialData.type || 'bank',
-    balance: initialData.balance || 0,
+    balance: initialData.balance,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+
+  // Debug: Log initial props and state
+  useEffect(() => {
+    console.log('AccountForm mounted with initialData:', initialData);
+    console.log('Initial formData:', formData);
+    
+    return () => {
+      console.log('AccountForm unmounting');
+    };
+  }, [initialData, formData]);
+  
+  // Debug: Log form data changes
+  useEffect(() => {
+    console.log('formData updated:', formData);
+  }, [formData]);
 
   const accountTypes = [
     { value: 'bank', label: 'Bank Account' },
     { value: 'wallet', label: 'Cash/Wallet' },
     { value: 'investment', label: 'Investment' },
     { value: 'loan', label: 'Loan' },
+    { value: 'other', label: 'Enter Account Type' },
   ];
 
   const handleChange = (e) => {
@@ -70,7 +86,8 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
           name="name"
           value={formData.name}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
+          placeholder="Please enter account name"
+          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-base"
           required
         />
       </div>
@@ -84,7 +101,8 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
           name="type"
           value={formData.type}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-sm"
+          placeholder="Please enter account type"
+          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-base"
           required
         >
           {accountTypes.map((type) => (
@@ -110,7 +128,8 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
             name="balance"
             value={formData.balance}
             onChange={handleChange}
-            className="pl-7 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
+            placeholder="Please enter account balance"
+              className="pl-7 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-base"
             required
           />
         </div>
