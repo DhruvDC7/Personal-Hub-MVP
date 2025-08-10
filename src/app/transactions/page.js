@@ -114,7 +114,7 @@ export default function TransactionsPage() {
       key: 'account', 
       header: 'Account',
       render: (txn) =>
-        accounts.find(a => a.id === (txn.account_id?.$oid || txn.account_id))?.name || 'Unknown'
+        accounts.find(a => a._id === txn.account_id)?.name || 'Unknown'
     },
     { 
       key: 'amount', 
