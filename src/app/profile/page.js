@@ -25,8 +25,7 @@ export default function ProfilePage() {
             name: data.user?.name || ''
           }));
         }
-      } catch (error) {
-        console.error('Error fetching profile:', error);
+      } catch {
       }
     };
 
