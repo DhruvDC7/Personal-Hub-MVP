@@ -57,7 +57,6 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
       router.refresh();
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error uploading document:', error);
       showToast({
         type: 'error',
         message: error.message || 'Failed to upload document. Please try again.',

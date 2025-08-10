@@ -49,13 +49,12 @@ export async function connectToDatabase() {
 
   if (cached.conn) {
     if (!cached.lastConnectionTime || now - cached.lastConnectionTime > 6 * 60 * 60 * 1000) {
-      console.log('Connection is stale, reconnecting to MongoDB Atlas');
       try {
         await cached.conn.close();
         cached.conn = null;
         cached.promise = null;
       } catch (error) {
-        console.warn('Error closing stale connection:', error);
+        // Silently handle error
       }
     } else {
       return cached.conn;
@@ -67,12 +66,10 @@ export async function connectToDatabase() {
 
     cached.promise = client.connect()
       .then(client => {
-        console.log('Connected to MongoDB Atlas with Fluid Compute optimizations');
         cached.lastConnectionTime = Date.now();
         return client;
       })
       .catch(error => {
-        console.error('Failed to connect to MongoDB Atlas:', error);
         cached.promise = null;
         throw error;
       });

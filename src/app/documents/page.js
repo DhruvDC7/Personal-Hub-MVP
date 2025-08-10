@@ -23,7 +23,7 @@ export default function DocumentsPage() {
       const data = await api('/api/documents');
       setDocuments(data);
     } catch (error) {
-      console.error('Error fetching documents:', error);
+      // Error is handled by the UI state
     } finally {
       setIsLoading(false);
     }
@@ -40,7 +40,6 @@ export default function DocumentsPage() {
       fetchDocuments();
       router.refresh();
     } catch (error) {
-      console.error('Error deleting document:', error);
       showToast({
         type: 'error',
         message: error.message || 'Failed to delete document. Please try again.'
