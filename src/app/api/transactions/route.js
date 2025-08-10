@@ -23,10 +23,12 @@ export async function GET(req) {
     const account = searchParams.get("account");
     const limit = parseInt(searchParams.get("limit")) || 0;
     
-    const start = month ? dayjs(`${month}-01`).startOf("month").toDate() : dayjs().startOf("month").toDate();
-    const end = month ? dayjs(`${month}-01`).endOf("month").toDate() : dayjs().endOf("month").toDate();
-
-    const query = { user_id: userId, happened_on: { $gte: start, $lte: end } };
+    const query = { user_id: userId };
+    if (month) {
+      const start = dayjs(`${month}-01`).startOf("month").toDate();
+      const end = dayjs(`${month}-01`).endOf("month").toDate();
+      query.created_on = { $gte: start, $lte: end };
+    }
     if (type) query.type = type;
     
     if (account) {
@@ -36,7 +38,7 @@ export async function GET(req) {
     const { status, data, message } = await MongoClientFind(
       "transactions",
       query,
-      { sort: { happened_on: -1 }, ...(limit ? { limit } : {}) }
+      { sort: { created_on: -1 }, ...(limit ? { limit } : {}) }
     );
     
     if (!status) throw new Error(message);
@@ -65,7 +67,7 @@ export async function POST(req) {
     const doc = {
       ...value,
       user_id: userId,
-      happened_on: new Date(value.happened_on),
+
       created_on: new Date(),
       updated_on: new Date(),
     };
@@ -108,7 +110,7 @@ export async function POST(req) {
 export async function PUT(req) {
   try {
     const body = await req.json();
-    const { id, account_id, type, amount, currency, category, note, tags, happened_on, attachment_ids } = body || {};
+    const { id, account_id, type, amount, currency, category, note, tags, attachment_ids } = body || {};
     
     if (!id) return new Response(errorObject("Transaction ID is required", 400), { status: 400 });
 
@@ -148,7 +150,7 @@ export async function PUT(req) {
     if (category) set.category = category;
     if (typeof note === "string") set.note = note;
     if (Array.isArray(tags)) set.tags = tags;
-    if (happened_on) set.happened_on = new Date(happened_on);
+
     if (Array.isArray(attachment_ids)) set.attachment_ids = attachment_ids;
 
     // Validate account ownership if changed

@@ -9,10 +9,13 @@ export async function GET(req) {
     const { status, data, message } = await MongoClientFind("accounts", { user_id: userId });
     if (!status) throw new Error(message);
 
-    const sumAccounts = data.reduce(
-      (sum, account) => sum + (Number(account.balance) || 0),
-      0
-    );
+    const sumAccounts = data.reduce((sum, account) => {
+      const balance = Number(account.balance) || 0;
+      if (account.type === 'loan') {
+        return sum - balance;
+      }
+      return sum + balance;
+    }, 0);
     
     return Response.json({ 
       status: true, 

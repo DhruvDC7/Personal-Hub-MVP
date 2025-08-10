@@ -76,7 +76,7 @@ export default function AccountsPage() {
       key: 'balance', 
       header: 'Balance',
       render: (account) => (
-        <span className={account.balance >= 0 ? 'text-green-600' : 'text-red-600'}>
+        <span className={account.type === 'loan' ? 'text-red-600' : (account.balance >= 0 ? 'text-green-600' : 'text-red-600')}>
           {formatINR(account.balance)}
         </span>
       )

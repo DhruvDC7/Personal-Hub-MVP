@@ -9,7 +9,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
     name: initialData.name || '',
     type: initialData.type || 'bank',
-    balance: initialData.balance,
+    balance: initialData.balance ?? '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
@@ -20,8 +20,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
     { value: 'bank', label: 'Bank Account' },
     { value: 'wallet', label: 'Cash/Wallet' },
     { value: 'investment', label: 'Investment' },
-    { value: 'loan', label: 'Loan' },
-    { value: 'other', label: 'Enter Account Type' },
+    { value: 'loan', label: 'Loan' }
   ];
 
   const handleChange = (e) => {
