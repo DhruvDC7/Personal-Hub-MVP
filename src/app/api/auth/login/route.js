@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { MongoClientFindOne, MongoClientUpdateOne } from '@/helpers/mongo';
+import { MongoClientFindOne, MongoClientUpdateOne, MongoClientInsertOne } from '@/helpers/mongo';
 import { signAccess, signRefresh, parseExpires } from '@/lib/jwt';
 import cookie from 'cookie';
 
@@ -12,7 +12,7 @@ dayjs.extend(timezone);
 
 const schema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().min(8).required(),
+  password: Joi.string().min(6).required(), // Reduced minimum length to 6 for better UX
 });
 
 export async function POST(req) {
@@ -23,13 +23,41 @@ export async function POST(req) {
       return new Response(JSON.stringify({ error: error.message }), { status: 400 });
     }
     const email = value.email.toLowerCase();
-    const { status, data: user } = await MongoClientFindOne('users', { email });
-    if (!status || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401 });
-    }
-    const ok = await bcrypt.compare(value.password, user.passwordHash || '');
-    if (!ok) {
-      return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401 });
+    let user;
+    let isNewUser = false;
+    
+    // Try to find existing user
+    const { status, data: existingUser } = await MongoClientFindOne('users', { email });
+    
+    if (status && existingUser) {
+      // Verify password for existing user
+      const isPasswordValid = await bcrypt.compare(value.password, existingUser.passwordHash || '');
+      if (!isPasswordValid) {
+        return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401 });
+      }
+      user = existingUser;
+    } else {
+      // Create new user if not exists
+      const hashedPassword = await bcrypt.hash(value.password, 10);
+      const now = dayjs().tz('Asia/Kolkata').toISOString();
+      
+      const newUser = {
+        email,
+        passwordHash: hashedPassword,
+        createdAt: now,
+        updatedAt: now,
+        lastLoginAt: now
+      };
+      
+      // Insert new user
+      const { status: createStatus, data: createdUser } = await MongoClientInsertOne('users', newUser);
+      
+      if (!createStatus || !createdUser) {
+        return new Response(JSON.stringify({ error: 'Failed to create user' }), { status: 500 });
+      }
+      
+      user = { ...newUser, _id: createdUser.insertedId };
+      isNewUser = true;
     }
     const payload = { userId: user.id || user._id?.toString() };
     const accessToken = signAccess(payload);
@@ -54,7 +82,16 @@ export async function POST(req) {
         }),
       ]
     };
-    return new Response(JSON.stringify({ user: { id: payload.userId, email } }), { status: 200, headers });
+    return new Response(
+      JSON.stringify({ 
+        user: { 
+          id: payload.userId, 
+          email,
+          isNewUser 
+        } 
+      }), 
+      { status: isNewUser ? 201 : 200, headers }
+    );
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message || 'Internal error' }), { status: 500 });
   }
