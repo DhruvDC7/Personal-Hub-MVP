@@ -22,7 +22,8 @@ export default function ProfilePage() {
           setProfile(prev => ({
             ...prev,
             email: data.user?.email || '',
-            name: data.user?.name || ''
+            name: data.user?.name || '',
+            phone: data.user?.phone || ''
           }));
         }
       } catch {
@@ -44,8 +45,24 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Implement profile update
-    setIsEditing(false);
+    try {
+      const response = await fetch('/api/me', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: profile.name, phone: profile.phone }),
+      });
+
+      if (response.ok) {
+        setIsEditing(false);
+      } else {
+        // Handle errors, e.g., show a notification
+        console.error('Failed to update profile');
+      }
+    } catch (error) {
+      console.error('An error occurred while updating the profile', error);
+    }
   };
 
   const handleLogout = () => {
