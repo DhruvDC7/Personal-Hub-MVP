@@ -7,7 +7,7 @@ import { showToast } from '@/lib/ui';
 
 export default function TransactionForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
-    account: initialData.account || '',
+    account_id: initialData.account_id || initialData.account || '',
     type: initialData.type || 'expense',
     amount: initialData.amount || '',
     category: initialData.category || '',
@@ -72,28 +72,23 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     setIsSubmitting(true);
 
     try {
-      // Create a new object with account_id instead of account
       const payload = {
         ...formData,
-        account_id: formData.account, // Map account to account_id
         amount: Number(formData.amount),
       };
-      
-      // Remove the account field as it's not expected by the API
-      delete payload.account;
 
       if (initialData._id) {
         // Update existing transaction
         await api(`/api/transactions/${initialData._id}`, {
           method: 'PUT',
-          body: JSON.stringify(payload),
+          body: payload, // Pass payload directly, fetcher will stringify it
         });
         showToast({ type: 'success', message: 'Transaction updated successfully' });
       } else {
         // Create new transaction
         await api('/api/transactions', {
           method: 'POST',
-          body: JSON.stringify(payload),
+          body: payload, // Pass payload directly, fetcher will stringify it
         });
         showToast({ type: 'success', message: 'Transaction created successfully' });
       }
@@ -138,13 +133,13 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       </div>
 
       <div>
-        <label htmlFor="account" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="account_id" className="block text-sm font-medium text-slate-300">
           Account
         </label>
         <select
-          id="account"
-          name="account"
-          value={formData.account}
+          id="account_id"
+          name="account_id"
+          value={formData.account_id}
           onChange={handleChange}
           className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-sm"
           required
