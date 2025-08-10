@@ -218,7 +218,7 @@ export default function TransactionsPage() {
             >
               <option value="">All Accounts</option>
               {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
+                <option key={acc._id} value={acc._id}>
                   {acc.name}
                 </option>
               ))}
