@@ -12,6 +12,6 @@ export default async function logs(request, message, status, payload) {
       created_on: new Date(),
     });
   } catch (e) {
-    console.error(e);
+    // Silently fail - we don't want to crash the app if logging fails
   }
 }

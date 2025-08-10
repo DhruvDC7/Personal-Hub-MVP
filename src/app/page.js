@@ -17,7 +17,7 @@ async function fetchDashboardData() {
     ]);
     return { netWorth, recentTransactions };
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
+    // Return default values on error
     return { netWorth: { netWorth: 0 }, recentTransactions: [] };
   }
 }
@@ -35,7 +35,7 @@ function Dashboard() {
         setNetWorth(data.netWorth || { netWorth: 0 });
         setRecentTransactions(data.recentTransactions || []);
       } catch (error) {
-        console.error('Error loading dashboard data:', error);
+        // Error is handled by the UI state
       } finally {
         setIsLoading(false);
       }

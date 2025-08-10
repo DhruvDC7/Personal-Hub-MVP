@@ -7,7 +7,7 @@ import { showToast } from '@/lib/ui';
 
 export default function TransactionForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
-    account_id: initialData.account_id || initialData.account || '',
+    account_id: initialData.account_id || initialData.account?._id || '',
     type: initialData.type || 'expense',
     amount: initialData.amount || '',
     category: initialData.category || '',
@@ -47,10 +47,10 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
 
         // If no account is selected, select the first one by default
         if (!formData.account_id && data.length > 0) {
-          setFormData(prev => ({ ...prev, account_id: data[0].id }));
+          setFormData(prev => ({ ...prev, account_id: data[0]._id }));
         }
       } catch (error) {
-        console.error('Error fetching accounts:', error);
+        // Error handled by the UI state
       } finally {
         setIsLoading(false);
       }
@@ -72,8 +72,15 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     setIsSubmitting(true);
 
     try {
+      // Ensure account_id is properly set from the selected account
+      const selectedAccount = accounts.find(acc => acc._id === formData.account_id);
+      if (!selectedAccount) {
+        throw new Error('Please select a valid account');
+      }
+
       const payload = {
         ...formData,
+        account_id: selectedAccount._id, // Ensure we're using the _id from the account object
         amount: Number(formData.amount),
       };
 
@@ -88,7 +95,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         // Create new transaction
         await api('/api/transactions', {
           method: 'POST',
-          body: payload, // Pass payload directly, fetcher will stringify it
+          body: payload,
         });
         showToast({ type: 'success', message: 'Transaction created successfully' });
       }
@@ -96,7 +103,6 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       if (onSuccess) onSuccess();
       router.refresh();
     } catch (error) {
-      console.error('Error saving transaction:', error);
       showToast({
         type: 'error',
         message: error.message || 'Failed to save transaction',
@@ -145,7 +151,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           required
         >
           {accounts.map((account) => (
-            <option key={account.id} value={account.id}>
+            <option key={account._id} value={account._id}>
               {account.name}
             </option>
           ))}

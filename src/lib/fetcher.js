@@ -17,7 +17,6 @@ export async function api(path, { method = 'GET', body, headers = {} } = {}) {
 
     return data.data ?? data;
   } catch (error) {
-    console.error('API Error:', error);
     showToast({
       type: 'error',
       message: error.message || 'Failed to fetch data. Please try again.',
@@ -42,7 +41,6 @@ export async function uploadFile(url, file) {
 
     return true;
   } catch (error) {
-    console.error('Upload Error:', error);
     showToast({
       type: 'error',
       message: error.message || 'Failed to upload file. Please try again.',

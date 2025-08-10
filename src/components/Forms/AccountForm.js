@@ -14,20 +14,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
-  // Debug: Log initial props and state
-  useEffect(() => {
-    console.log('AccountForm mounted with initialData:', initialData);
-    console.log('Initial formData:', formData);
-    
-    return () => {
-      console.log('AccountForm unmounting');
-    };
-  }, [initialData, formData]);
-  
-  // Debug: Log form data changes
-  useEffect(() => {
-    console.log('formData updated:', formData);
-  }, [formData]);
+  // No debug logs needed in production
 
   const accountTypes = [
     { value: 'bank', label: 'Bank Account' },
@@ -65,7 +52,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
       router.refresh();
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error saving account:', error);
+      // Error is shown via toast in the API layer
     } finally {
       setIsSubmitting(false);
     }

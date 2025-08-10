@@ -36,7 +36,7 @@ export default function TransactionsPage() {
       const data = await api(`/api/transactions?${params.toString()}`);
       setTransactions(data);
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      // Error is handled by the UI state
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +47,7 @@ export default function TransactionsPage() {
       const data = await api('/api/accounts');
       setAccounts(data);
     } catch (error) {
-      console.error('Error fetching accounts:', error);
+      // Error is handled by the UI state
     }
   }, []);
 
@@ -62,7 +62,6 @@ export default function TransactionsPage() {
       fetchTransactions();
       router.refresh();
     } catch (error) {
-      console.error('Error deleting transaction:', error);
       showToast({
         type: 'error',
         message: error.message || 'Failed to delete transaction. Please try again.'

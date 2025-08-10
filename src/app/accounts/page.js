@@ -23,7 +23,7 @@ export default function AccountsPage() {
       const data = await api('/api/accounts');
       setAccounts(data);
     } catch (error) {
-      console.error('Error fetching accounts:', error);
+      // Error is handled by the UI state
     } finally {
       setIsLoading(false);
     }
@@ -40,7 +40,6 @@ export default function AccountsPage() {
       fetchAccounts();
       router.refresh();
     } catch (error) {
-      console.error('Error deleting account:', error);
       showToast({
         type: 'error',
         message: error.message || 'Failed to delete account. Please try again.'
