@@ -64,9 +64,14 @@ export async function POST(req) {
   const requestId = Math.random().toString(36).substring(2, 9);
   
   console.log(`[API] [${requestId}] POST /api/transactions - Starting`);
-  
+
   const raw = await req.json();
-  const { error, value } = transactionSchema.validate(raw, { abortEarly: false });
+  const body = { ...raw };
+  if (body.account && !body.account_id) {
+    body.account_id = body.account;
+    delete body.account;
+  }
+  const { error, value } = transactionSchema.validate(body, { abortEarly: false });
   
   if (error) {
     console.error(`[API] [${requestId}] POST /api/transactions - Validation failed (${Date.now() - startTime}ms):`, error.message);
@@ -145,9 +150,13 @@ export async function PUT(req) {
   const requestId = Math.random().toString(36).substring(2, 9);
   
   console.log(`[API] [${requestId}] PUT /api/transactions - Starting`);
-  
+
   try {
     const body = await req.json();
+    if (body.account && !body.account_id) {
+      body.account_id = body.account;
+      delete body.account;
+    }
     const { _id, account_id, type, amount, currency, category, note, tags, happened_on, attachment_ids } = body || {};
     if (!_id) return new Response(errorObject("_id is required", 400), { status: 400 });
 
