@@ -6,15 +6,16 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const navItems = [
-    { name: 'Dashboard', path: '/' },
+    { name: 'Dashboard', path: '/dashboard' },
     { name: 'Accounts', path: '/accounts' },
     { name: 'Transactions', path: '/transactions' },
     { name: 'Documents', path: '/documents' },
-    { name: 'Settings', path: '/settings' },
   ];
+  
+  
 
   return (
     <nav className="bg-slate-800 border-b border-slate-700">
@@ -22,35 +23,46 @@ export default function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <span className="text-xl font-bold text-sky-400">Personal Hub</span>
+              <Link href="/" className="text-xl font-bold text-sky-400 hover:text-sky-300">
+                Personal Hub
+              </Link>
             </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={`${
-                    pathname === item.path
-                      ? 'border-sky-400 text-sky-400'
-                      : 'border-transparent text-slate-400 hover:border-slate-600 hover:text-slate-50'
-                  } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors`}
-                >
-                  {item.name}
-                </Link>
-              ))}
-            </div>
+            {user && (
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    className={`${
+                      pathname === item.path
+                        ? 'border-sky-400 text-sky-400'
+                        : 'border-transparent text-slate-400 hover:border-slate-600 hover:text-slate-50'
+                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center">
             {user ? (
-              <>
-                <span className="text-slate-400 text-sm">{user.email}</span>
-                <button onClick={logout} className="text-slate-400 hover:text-slate-50 text-sm">Logout</button>
-              </>
+              <Link 
+                href="/profile"
+                className="flex items-center max-w-xs text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-white cursor-pointer hover:bg-slate-700 p-1 transition-colors"
+              >
+                <span className="sr-only">Open user profile</span>
+                <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 hover:bg-slate-600 transition-colors">
+                  {user.email?.charAt(0).toUpperCase()}
+                </div>
+              </Link>
             ) : (
-              <>
-                <Link href="/login" className="text-slate-400 hover:text-slate-50 text-sm">Login</Link>
-                <Link href="/register" className="text-slate-400 hover:text-slate-50 text-sm">Register</Link>
-              </>
+              <Link 
+                href="/login" 
+                className="text-slate-400 hover:text-slate-50 text-sm px-3 py-2 rounded-md hover:bg-slate-700"
+              >
+                Login / Sign Up
+              </Link>
             )}
           </div>
         </div>
