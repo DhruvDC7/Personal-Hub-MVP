@@ -20,15 +20,16 @@ export async function GET(req) {
 export async function PUT(req) {
   try {
     const { userId } = requireAuth(req);
-    const { name, phone } = await req.json();
+    const { name, phone, address } = await req.json();
 
-    if (!name && !phone) {
-      return new Response(JSON.stringify({ error: 'Name or phone is required' }), { status: 400 });
+    if (!name && !phone && !address) {
+      return new Response(JSON.stringify({ error: 'Name, phone or address is required' }), { status: 400 });
     }
 
     const updateData = {};
     if (name) updateData.name = name;
     if (phone) updateData.phone = phone;
+    if (address) updateData.address = address;
 
         const { status, data } = await MongoClientUpdateOne('users', { _id: userId }, { $set: updateData });
 

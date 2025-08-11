@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { isAuthenticated, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,24 +26,15 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
-      // Always attempt to log in
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const { success, error: loginError } = await login(email, password);
       
-      const data = await res.json().catch(() => ({}));
-      
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
+      if (!success) {
+        throw new Error(loginError || 'Authentication failed');
       }
       
-      // Redirect to dashboard on successful login/registration
-      router.push('/dashboard');
+      // The auth state change will trigger the redirect in the useEffect
     } catch (err) {
       setError(err.message || 'Authentication failed');
-    } finally {
       setIsLoading(false);
     }
   };
