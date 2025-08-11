@@ -83,6 +83,68 @@ export async function GET(req) {
   }
 }
 
+// PATCH /api/documents?id=<id> -> update document title
+export async function PATCH(req) {
+  if (!isAuthorized(req)) {
+    return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return json({ success: false, error: 'Missing document ID' }, { status: 400 });
+    }
+
+    let _id;
+    try { 
+      _id = new ObjectId(id); 
+    } catch { 
+      return json({ success: false, error: 'Invalid document ID format' }, { status: 400 });
+    }
+
+    const { title } = await req.json();
+    
+    if (typeof title !== 'string' || !title.trim()) {
+      return json({ success: false, error: 'Title is required and must be a non-empty string' }, { status: 400 });
+    }
+
+    const bucket = await getGridFSBucket();
+    const file = await findFile(bucket, _id);
+    
+    if (!file) {
+      return json({ success: false, error: 'Document not found' }, { status: 404 });
+    }
+
+    // Get the MongoDB database instance
+    const db = bucket.s.db;
+    
+    // Update the file's metadata in the files collection
+    await db.collection('documents.files').updateOne(
+      { _id },
+      { $set: { 'metadata.title': title } }
+    );
+
+    return json({
+      success: true,
+      data: {
+        id: _id.toString(),
+        title,
+        filename: file.filename
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error updating document title:', error);
+    return json({
+      success: false,
+      error: 'Failed to update document title',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
+  }
+}
+
 // HEAD /api/documents?id=<id> -> headers only
 export async function HEAD(req) {
   if (!isAuthorized(req)) {

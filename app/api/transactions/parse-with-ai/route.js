@@ -19,6 +19,8 @@ const categories = [
   'Financial Expenses',
   'Investments',
   'Income',
+  'Insurance',
+  'EMI',
   'Other',
 ];
 

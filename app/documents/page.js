@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/format';
 import { api } from '@/lib/fetcher';
-import { downloadDocument, previewDocument, confirmAndDeleteDocument } from '@/lib/documents';
+import { downloadDocument, previewDocument, confirmAndDeleteDocument, updateDocumentTitle } from '@/lib/documents';
 import Card from '@/components/Card';
 import Table from '@/components/Table';
 import Modal from '@/components/Modal';
@@ -17,6 +17,8 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
   const router = useRouter();
 
   const fetchDocuments = async () => {
@@ -45,10 +47,7 @@ export default function DocumentsPage() {
         }
       }
     } catch (error) {
-      showToast({
-        type: 'error',
-        message: error.message || 'Failed to load documents. Please try again.'
-      });
+      console.error('Error fetching documents:', error);
       setDocuments([]);
     } finally {
       setIsLoading(false);
@@ -73,20 +72,91 @@ export default function DocumentsPage() {
     fetchDocuments();
   }, []);
 
+  const handleTitleEdit = (doc) => {
+    setEditingId(doc.id);
+    setEditTitle(doc.title || doc.filename);
+  };
+
+  const handleTitleSave = async (doc) => {
+    if (!editTitle.trim()) {
+      console.error('Title cannot be empty');
+      return;
+    }
+
+    try {
+      const result = await updateDocumentTitle(doc.id, editTitle.trim());
+      if (result.success) {
+        setDocuments(docs => 
+          docs.map(d => 
+            d.id === doc.id 
+              ? { ...d, title: editTitle.trim() } 
+              : d
+          )
+        );
+        console.log('Title updated successfully');
+      }
+    } catch (error) {
+      console.error('Failed to update title:', error.message || 'Unknown error');
+    } finally {
+      setEditingId(null);
+      setEditTitle('');
+    }
+  };
+
+  const handleKeyDown = (e, doc) => {
+    if (e.key === 'Enter') {
+      handleTitleSave(doc);
+    } else if (e.key === 'Escape') {
+      setEditingId(null);
+      setEditTitle('');
+    }
+  };
+
   const columns = [
     { 
       key: 'title', 
       header: 'Title',
       render: (doc) => (
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            previewDocument(doc.id);
-          }}
-          className="text-sky-400 hover:text-sky-500 text-left"
-        >
-          {doc.title}
-        </button>
+        <div className="flex items-center space-x-2">
+          {editingId === doc.id ? (
+            <div className="flex items-center space-x-2 w-full">
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, doc)}
+                className="flex-1 px-2 py-1 border rounded text-sm"
+                autoFocus
+              />
+              <button
+                onClick={() => handleTitleSave(doc)}
+                className="ml-2 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(null);
+                  setEditTitle('');
+                }}
+                className="ml-1 px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center group">
+              <span className="mr-2">{doc.title || doc.filename}</span>
+              <button
+                onClick={() => handleTitleEdit(doc)}
+                className="ml-2 text-xs text-blue-500 hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                Edit
+              </button>
+            </div>
+          )}
+        </div>
       )
     },
     { 

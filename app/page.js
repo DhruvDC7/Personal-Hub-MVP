@@ -16,6 +16,7 @@ function Dashboard() {
   const [netWorth, setNetWorth] = useState({ networth: 0, currency: 'INR' });
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [accountCount, setAccountCount] = useState(0);
+  const [documentCount, setDocumentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   
@@ -43,12 +44,23 @@ function Dashboard() {
       }
       const accountsData = await accountsResponse.json();
       
+      // Fetch documents count
+      const documentsResponse = await fetch('/api/documents');
+      if (!documentsResponse.ok) {
+        throw new Error(`HTTP error! status: ${documentsResponse.status}`);
+      }
+      const documentsData = await documentsResponse.json();
+      
       if (netWorthData.status) {
         setNetWorth(netWorthData.data);
       }
       
       if (accountsData.status) {
         setAccountCount(accountsData.data.length);
+      }
+      
+      if (documentsData.success) {
+        setDocumentCount(documentsData.data.length || 0);
       }
       
       setRecentTransactions(transactionsData.data || []);
@@ -103,7 +115,7 @@ function Dashboard() {
             variant="link" 
             className="mt-2 text-sm"
           >
-            View all accounts →
+            View all wealth →
           </Button>
         </Card>
 
@@ -123,9 +135,9 @@ function Dashboard() {
         </Card>
 
         <Card>
-          <h3 className="text-lg font-medium text-slate-50">Recent Documents</h3>
+          <h3 className="text-lg font-medium text-slate-50">Documents</h3>
           <p className="mt-2 text-3xl font-semibold">
-            {netWorth.documentCount || 0} documents
+            {documentCount} {documentCount === 1 ? 'document' : 'documents'}
           </p>
           <Button 
             as={Link} 

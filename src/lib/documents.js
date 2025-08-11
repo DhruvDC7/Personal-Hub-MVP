@@ -156,16 +156,65 @@ export async function deleteDocument(documentId) {
  * @returns {Promise<boolean>} - True if deleted, false if cancelled
  */
 export async function confirmAndDeleteDocument(documentId, documentName) {
-  const confirmed = window.confirm(
-    `Are you sure you want to delete ${documentName ? `"${documentName}"` : 'this document'}? This action cannot be undone.`
-  );
-  
-  if (!confirmed) return false;
-  
   try {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${documentName ? `"${documentName}"` : 'this document'}?`
+    );
+    
+    if (!confirmed) return false;
+    
     await deleteDocument(documentId);
+    showToast({
+      type: 'success',
+      message: 'Document deleted successfully',
+    });
     return true;
-  } catch {
+  } catch (error) {
+    showToast({
+      type: 'error',
+      message: error.message || 'Failed to delete document',
+    });
     return false;
+  }
+}
+
+/**
+ * Updates a document's title
+ * @param {string} documentId - The ID of the document to update
+ * @param {string} title - New title for the document
+ * @returns {Promise<{success: boolean, data: {id: string, title: string}}>}
+ */
+export async function updateDocumentTitle(documentId, title) {
+  try {
+    const response = await fetch(`/api/documents?id=${documentId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ title }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to update document title');
+    }
+
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast({
+        type: 'success',
+        message: 'Document title updated successfully',
+      });
+    }
+    
+    return result;
+  } catch (error) {
+    showToast({
+      type: 'error',
+      message: error.message || 'Failed to update document title',
+    });
+    throw error;
   }
 }
