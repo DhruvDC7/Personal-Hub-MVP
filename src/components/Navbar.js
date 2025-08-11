@@ -61,7 +61,7 @@ export default function Navbar() {
                 href="/login" 
                 className="text-slate-400 hover:text-slate-50 text-sm px-3 py-2 rounded-md hover:bg-slate-700"
               >
-                Login / Sign Up
+                Login
               </Link>
             )}
           </div>
