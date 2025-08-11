@@ -3,44 +3,53 @@ import bcrypt from 'bcryptjs';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
+import { ObjectId } from 'mongodb';
 import { MongoClientFindOne, MongoClientUpdateOne, MongoClientInsertOne } from '@/helpers/mongo';
 import { signAccess, signRefresh, parseExpires } from '@/lib/jwt';
-import cookie from 'cookie';
+import { serialize } from 'cookie'; // ✅ use named export
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const schema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(), // Reduced minimum length to 6 for better UX
+  password: Joi.string().min(6).required(), // min 6 for UX
 });
 
 export async function POST(req) {
   try {
+    // 1) Validate input
     const body = await req.json();
     const { value, error } = schema.validate(body);
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
+
     const email = value.email.toLowerCase();
     let user;
     let isNewUser = false;
-    
-    // Try to find existing user
+
+    // 2) Try to find existing user
     const { status, data: existingUser } = await MongoClientFindOne('users', { email });
-    
+
     if (status && existingUser) {
-      // Verify password for existing user
+      // 2a) Verify password for existing user
       const isPasswordValid = await bcrypt.compare(value.password, existingUser.passwordHash || '');
       if (!isPasswordValid) {
-        return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401 });
+        return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
       user = existingUser;
     } else {
-      // Create new user if not exists
+      // 2b) Create new user if not found
       const hashedPassword = await bcrypt.hash(value.password, 10);
       const now = dayjs().tz('Asia/Kolkata').toISOString();
-      
+
       const newUser = {
         email,
         passwordHash: hashedPassword,
@@ -48,52 +57,80 @@ export async function POST(req) {
         updatedAt: now,
         lastLoginAt: now
       };
-      
-      // Insert new user
+
       const { status: createStatus, data: createdUser } = await MongoClientInsertOne('users', newUser);
-      
       if (!createStatus || !createdUser) {
-        return new Response(JSON.stringify({ error: 'Failed to create user' }), { status: 500 });
+        return new Response(JSON.stringify({ error: 'Failed to create user' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
-      
+
       user = { ...newUser, _id: createdUser.insertedId };
       isNewUser = true;
     }
-    const payload = { userId: user.id || user._id?.toString() };
+
+    // 3) Sign tokens with user id (string)
+    const userId = user.id || user._id?.toString();
+    const payload = { userId };
     const accessToken = signAccess(payload);
     const refreshToken = signRefresh(payload);
+
+    // 4) Update last login timestamps (ensure proper ObjectId in filter)
     const now = dayjs().tz('Asia/Kolkata').toISOString();
-    await MongoClientUpdateOne('users', { _id: payload.userId }, { $set: { lastLoginAt: now, updatedAt: now } });
+    let filter = { _id: userId }; // fallback if your helper accepts string ids
+    try {
+      // Prefer ObjectId when possible
+      filter = { _id: new ObjectId(userId) };
+    } catch {
+      // ignore if not a valid ObjectId string; helper may handle string _id
+    }
+
+    await MongoClientUpdateOne('users', filter, {
+      $set: { lastLoginAt: now, updatedAt: now }
+    });
+
+    // 5) Set secure httpOnly cookies
     const isProduction = process.env.NODE_ENV === 'production';
-    const headers = {
-      'Set-Cookie': [
-        cookie.serialize('access_token', accessToken, {
-          httpOnly: true,
-          secure: isProduction,
-          sameSite: isProduction ? 'strict' : 'lax',
-          path: '/',
-          maxAge: parseExpires(process.env.JWT_EXPIRES_IN || '15m'),
-        }),
-        cookie.serialize('refresh_token', refreshToken, {
-          httpOnly: true,
-          secure: isProduction,
-          sameSite: isProduction ? 'strict' : 'lax',
-          path: '/',
-          maxAge: parseExpires(process.env.JWT_REFRESH_EXPIRES_IN || '7d'),
-        }),
-      ]
-    };
+    const setCookieHeader = [
+      serialize('access_token', accessToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'strict' : 'lax',
+        path: '/',
+        maxAge: parseExpires(process.env.JWT_EXPIRES_IN || '15m'), // in seconds
+      }),
+      serialize('refresh_token', refreshToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'strict' : 'lax',
+        path: '/',
+        maxAge: parseExpires(process.env.JWT_REFRESH_EXPIRES_IN || '7d'), // in seconds
+      }),
+    ];
+
+    // 6) Respond with minimal user object
     return new Response(
-      JSON.stringify({ 
-        user: { 
-          id: payload.userId, 
+      JSON.stringify({
+        user: {
+          id: userId,
           email,
-          isNewUser 
-        } 
-      }), 
-      { status: isNewUser ? 201 : 200, headers }
+          isNewUser
+        }
+      }),
+      {
+        status: isNewUser ? 201 : 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Set-Cookie': setCookieHeader
+        }
+      }
     );
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message || 'Internal error' }), { status: 500 });
+    // Robust error reporting
+    return new Response(JSON.stringify({ error: e?.message || 'Internal error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
