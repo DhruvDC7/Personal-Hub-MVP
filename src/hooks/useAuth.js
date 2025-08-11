@@ -2,84 +2,128 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { showToast } from '@/lib/ui';
 
-const AuthContext = createContext(null);
+const AuthContext = createContext({
+  user: null,
+  isAuthenticated: false,
+  loading: true,
+  login: async () => {},
+  logout: async () => {},
+  refreshUser: async () => {}
+});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const hasFetched = useRef(false);
+  const isMounted = useRef(false);
   const router = useRouter();
 
   const fetchUser = useCallback(async () => {
+    if (!isMounted.current) return false;
+    
     try {
       setLoading(true);
-      const res = await fetch('/api/me');
+      const res = await fetch('/api/me', { credentials: 'include' });
       
       if (res.status === 401) {
         // Try to refresh token
         const refreshRes = await fetch('/api/auth/refresh', { 
           method: 'POST',
-          credentials: 'include' // Ensure cookies are sent
+          credentials: 'include'
         });
         
         if (refreshRes.ok) {
           // If refresh was successful, try getting user again
-          const userRes = await fetch('/api/me');
+          const userRes = await fetch('/api/me', { credentials: 'include' });
           if (userRes.ok) {
             const data = await userRes.json();
-            setUser(data.user);
+            if (isMounted.current) {
+              setUser(data.user);
+            }
             return true;
           }
         }
         // If we get here, authentication failed
-        setUser(null);
+        if (isMounted.current) {
+          setUser(null);
+        }
         return false;
       } 
       
       if (res.ok) {
         const data = await res.json();
-        setUser(data.user);
+        if (isMounted.current) {
+          setUser(data.user);
+        }
         return true;
       }
       
-      setUser(null);
+      if (isMounted.current) {
+        setUser(null);
+      }
       return false;
     } catch (error) {
       console.error('Auth error:', error);
-      setUser(null);
+      if (isMounted.current) {
+        setUser(null);
+      }
       return false;
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (hasFetched.current) return; // Avoid duplicate fetch in React Strict Mode (dev)
-    hasFetched.current = true;
-    fetchUser();
+    isMounted.current = true;
+    
+    // Initial fetch
+    if (isMounted.current) {
+      fetchUser();
+    }
+
+    return () => {
+      isMounted.current = false;
+    };
   }, [fetchUser]);
 
   const login = async (email, password) => {
     try {
+      setLoading(true);
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
         credentials: 'include'
       });
-      
+
       if (res.ok) {
-        // After successful login, fetch user data
-        await fetchUser();
+        const data = await res.json();
+        if (isMounted.current) {
+          setUser(data.user);
+          showToast({ type: 'success', message: 'Logged in successfully' });
+        }
         return { success: true };
       }
-      
       const error = await res.json().catch(() => ({}));
-      return { success: false, error: error.error || 'Login failed' };
+      const errorMessage = error.message || 'Invalid credentials';
+      showToast({ type: 'error', message: errorMessage });
+      return { 
+        success: false, 
+        error: errorMessage
+      };
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: 'Network error' };
+      return { 
+        success: false, 
+        error: 'An error occurred during login' 
+      };
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -89,20 +133,30 @@ export function AuthProvider({ children }) {
         method: 'POST',
         credentials: 'include' 
       });
+      showToast({ type: 'success', message: 'Logged out successfully' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      showToast({ type: 'error', message: 'Failed to logout' });
     } finally {
-      setUser(null);
-      router.push('/login');
+      if (isMounted.current) {
+        setUser(null);
+        router.push('/login');
+      }
     }
   };
 
+  const refreshUser = async () => {
+    return fetchUser();
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
+    <AuthContext.Provider value={{
+      user,
       isAuthenticated: !!user,
+      loading,
       login,
-      logout, 
-      refresh: fetchUser 
+      logout,
+      refreshUser,
     }}>
       {children}
     </AuthContext.Provider>
@@ -110,9 +164,9 @@ export function AuthProvider({ children }) {
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  return ctx;
+  return context;
 }

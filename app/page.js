@@ -24,14 +24,23 @@ function Dashboard() {
     try {
       // Fetch net worth data
       const netWorthResponse = await fetch('/api/metrics/networth');
+      if (!netWorthResponse.ok) {
+        throw new Error(`HTTP error! status: ${netWorthResponse.status}`);
+      }
       const netWorthData = await netWorthResponse.json();
       
       // Fetch recent transactions
-            const transactionsResponse = await fetch('/api/transactions?limit=5&sort=created_on');
+      const transactionsResponse = await fetch('/api/transactions?limit=5&sort=created_on');
+      if (!transactionsResponse.ok) {
+        throw new Error(`HTTP error! status: ${transactionsResponse.status}`);
+      }
       const transactionsData = await transactionsResponse.json();
       
       // Fetch accounts data
       const accountsResponse = await fetch('/api/accounts');
+      if (!accountsResponse.ok) {
+        throw new Error(`HTTP error! status: ${accountsResponse.status}`);
+      }
       const accountsData = await accountsResponse.json();
       
       if (netWorthData.status) {
@@ -44,7 +53,8 @@ function Dashboard() {
       
       setRecentTransactions(transactionsData.data || []);
     } catch (error) {
-      // Error is handled by the UI state
+      console.error('Error loading dashboard data:', error);
+      // You might want to show an error toast here
     } finally {
       setIsLoading(false);
     }
@@ -61,7 +71,6 @@ function Dashboard() {
       </div>
     );
   }
-
   const transactionColumns = [
         { key: 'date', header: 'Date', render: (txn) => new Date(txn.created_on).toLocaleDateString() },
     { key: 'description', header: 'Description', render: (txn) => txn.note || txn.category },
