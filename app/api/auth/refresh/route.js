@@ -1,31 +1,25 @@
-import cookie from 'cookie';
 import { verifyToken, signAccess, parseExpires } from '@/lib/jwt';
 
-// Environment detection with default to development
-const isProduction = (process.env.NODE_ENV || 'development') === 'production';
-const isDevelopment = !isProduction;
-
-// Enhanced debug logging
-const debugLog = (message, data = {}) => {
-  if (isDevelopment) {
-    console.log(`[${new Date().toISOString()}] [Refresh Token] ${message}`, Object.keys(data).length ? data : '');
-  }
+// Simple cookie parser for Next.js 13+ route handlers
+const parseCookies = (cookieHeader = '') => {
+  return cookieHeader.split(';').reduce((cookies, cookie) => {
+    const [name, value] = cookie.split('=').map(c => c.trim());
+    if (name) {
+      cookies[name] = decodeURIComponent(value || '');
+    }
+    return cookies;
+  }, {});
 };
 
 export async function POST(req) {
   try {
-    debugLog('Refresh token request received');
-    
-    const cookies = cookie.parse(req.headers.get('cookie') || '');
+    const cookieHeader = req.headers.get('cookie') || '';
+    const cookies = parseCookies(cookieHeader);
     const token = cookies.refresh_token;
     
-    debugLog('Cookies received', { hasRefreshToken: !!token });
-    
     if (!token) {
-      debugLog('No refresh token found in cookies');
       return new Response(JSON.stringify({ 
-        error: 'No refresh token provided',
-        ...(isDevelopment && { debug: 'No refresh_token found in cookies' })
+        error: 'No refresh token provided'
       }), { 
         status: 401,
         headers: { 'Content-Type': 'application/json' }
@@ -33,31 +27,25 @@ export async function POST(req) {
     }
     
     try {
-      debugLog('Verifying refresh token');
       const payload = verifyToken(token);
-      debugLog('Refresh token verified', { userId: payload.userId });
-      
-      debugLog('Generating new access token');
       const accessToken = signAccess({ userId: payload.userId });
       
       const maxAge = parseExpires(process.env.JWT_EXPIRES_IN || '15m');
       const headers = {
-        'Set-Cookie': cookie.serialize('access_token', accessToken, {
-          httpOnly: true,
-          secure: isProduction,
-          sameSite: 'strict',
-          path: '/',
-          maxAge,
-        })
+        'Set-Cookie': [
+          `access_token=${encodeURIComponent(accessToken)}`,
+          'Path=/',
+          'HttpOnly',
+          `Max-Age=${maxAge}`,
+          'SameSite=Strict',
+          'Secure'
+        ].join('; ')
       };
-      
-      debugLog('New access token generated and cookie set');
       
       return new Response(
         JSON.stringify({ 
           ok: true,
-          expiresIn: maxAge,
-          ...(isDevelopment && { debug: 'Token refreshed successfully' })
+          expiresIn: maxAge
         }), 
         { 
           status: 200, 
@@ -69,19 +57,9 @@ export async function POST(req) {
       );
       
     } catch (error) {
-      debugLog('Error during token refresh', { 
-        error: error.message,
-        name: error.name,
-        ...(isDevelopment && { stack: error.stack })
-      });
-      
       return new Response(
         JSON.stringify({ 
-          error: 'Invalid or expired refresh token',
-          ...(isDevelopment && { 
-            details: error.message,
-            ...(error.stack && { stack: error.stack })
-          })
+          error: 'Invalid or expired refresh token'
         }), 
         { 
           status: 401,
