@@ -8,7 +8,7 @@ export async function GET(req) {
     if (!status || !data) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
-    return Response.json({ user: { id: data.id || data._id?.toString(), email: data.email, name: data.name, phone: data.phone } }, { headers: { 'Content-Type': 'application/json' } });
+    return Response.json({ user: { id: data.id || data._id?.toString(), email: data.email, name: data.name, phone: data.phone, address: data.address } }, { headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
     if (e.status === 401) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
