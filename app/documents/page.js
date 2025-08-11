@@ -1,281 +1,157 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import DocumentUpload from '@/components/Forms/DocumentUpload';
+import { previewDocument, deleteDocument, updateDocumentTitle } from '@/lib/documents';
 import { showToast } from '@/lib/ui';
 
-export default function ProfilePage() {
-  const { user, logout } = useAuth();
-
-  const [profile, setProfile] = useState({ name: '', email: '', phone: '', address: '' });
-  const [isEditing, setIsEditing] = useState(false);
+export default function DocumentsPage() {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [documents, setDocuments] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [query, setQuery] = useState('');
 
-  // avatar state
-  const [avatarUrl, setAvatarUrl] = useState('');           // server URL (GridFS stream)
-  const [avatarFile, setAvatarFile] = useState(null);       // newly selected file
-  const [avatarPreview, setAvatarPreview] = useState('');   // local preview URL
-  const [removeAvatar, setRemoveAvatar] = useState(false);  // mark for deletion
-  const fileInputRef = useRef(null);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch('/api/me');
-        if (res.ok) {
-          const data = await res.json();
-          setProfile(prev => ({
-            ...prev,
-            email: data.user?.email || '',
-            name: data.user?.name || '',
-            phone: data.user?.phone || '',
-            address: data.user?.address || ''
-          }));
-          // always try to load avatar; cache-bust to ensure latest
-          setAvatarUrl(`/api/me/avatar?ts=${Date.now()}`);
-        }
-      } catch (_) {
-        // optionally toast
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    if (user) fetchProfile();
-  }, [user]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setProfile(prev => ({ ...prev, [name]: value }));
-  };
-
-  const onPickAvatar = () => fileInputRef.current?.click();
-
-  const onFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!/image\/(png|jpe?g|webp)/i.test(file.type)) {
-      showToast({ type: 'error', message: 'Only PNG, JPG, JPEG, or WEBP allowed.' });
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      showToast({ type: 'error', message: 'Max size 5MB.' });
-      return;
-    }
-
-    setAvatarFile(file);
-    setRemoveAvatar(false);
-    const url = URL.createObjectURL(file);
-    setAvatarPreview(url);
-  };
-
-  const onRemoveAvatar = () => {
-    setAvatarFile(null);
-    setAvatarPreview('');
-    setRemoveAvatar(true);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSaving(true);
+  const loadDocuments = async () => {
+    setIsLoading(true);
     try {
-      // 1) Save basic profile
-      const res = await fetch('/api/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: profile.name,
-          phone: profile.phone,
-          address: profile.address
-        })
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed to update profile');
-
-      // 2) Save avatar (upload or delete) if changed
-      if (avatarFile) {
-        const fd = new FormData();
-        fd.append('file', avatarFile);
-        const up = await fetch('/api/me/avatar', { method: 'POST', body: fd });
-        if (!up.ok) {
-          const err = await up.json().catch(() => ({}));
-          throw new Error(err.message || 'Failed to upload avatar');
-        }
-        setAvatarUrl(`/api/me/avatar?ts=${Date.now()}`);
-        setAvatarPreview('');
-        setAvatarFile(null);
-      } else if (removeAvatar) {
-        const del = await fetch('/api/me/avatar', { method: 'DELETE' });
-        if (!del.ok) {
-          const err = await del.json().catch(() => ({}));
-          throw new Error(err.message || 'Failed to remove avatar');
-        }
-        setAvatarUrl(''); // will fall back to initials
-        setRemoveAvatar(false);
-      }
-
-      showToast({ type: 'success', message: 'Profile updated successfully' });
-      setIsEditing(false);
-    } catch (error) {
-      showToast({ type: 'error', message: error.message || 'Update failed' });
+      const res = await fetch('/api/documents');
+      const data = await res.json();
+      if (data.success) setDocuments(data.data);
+    } catch (e) {
+      // optional toast
     } finally {
-      setIsSaving(false);
+      setIsLoading(false);
     }
   };
 
-  const handleLogout = () => logout();
+  useEffect(() => { loadDocuments(); }, []);
 
-  if (!user) {
+  const onStartEdit = (doc) => {
+    setEditingId(doc.id);
+    setEditingTitle(doc.title || doc.filename);
+  };
+
+  const onSaveTitle = async () => {
+    try {
+      await updateDocumentTitle(editingId, editingTitle);
+      setEditingId(null);
+      await loadDocuments();
+    } catch {}
+  };
+
+  const onDelete = async (id, name) => {
+    try {
+      await deleteDocument(id);
+      await loadDocuments();
+    } catch {}
+  };
+
+  const normalized = (s = '') => s.toLowerCase();
+  const filteredDocs = documents.filter((d) => {
+    if (!query) return true;
+    const q = normalized(query);
     return (
-      <div className="max-w-4xl mx-auto p-6">
-        <p className="text-slate-200">Please log in to view your profile.</p>
-      </div>
+      normalized(d.title || '').includes(q) ||
+      normalized(d.filename || '').includes(q) ||
+      normalized(d.contentType || '').includes(q)
     );
-  }
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
-
-  const initials = (profile?.name || user?.email || 'U')
-    .split(' ')
-    .map(s => s[0]?.toUpperCase())
-    .slice(0, 2)
-    .join('');
-
-  const displayAvatar = avatarPreview || (avatarUrl || '');
+  });
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="bg-slate-800 rounded-2xl shadow-md p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-semibold text-slate-50">Profile</h1>
-          <div className="flex items-center gap-2">
-            {!isEditing ? (
-              <Button onClick={() => setIsEditing(true)} variant="primary" className="text-sm px-3 py-1.5 rounded-lg">
-                Edit
-              </Button>
-            ) : (
-              <>
-                <Button onClick={() => setIsEditing(false)} variant="outline" className="text-sm px-3 py-1.5 rounded-lg">
-                  Cancel
-                </Button>
-                <Button onClick={handleSubmit} variant="primary" isLoading={isSaving} loadingText="Saving..." className="text-sm px-3 py-1.5 rounded-lg">
-                  Save
-                </Button>
-              </>
-            )}
-            <Button onClick={handleLogout} variant="danger" className="text-sm px-3 py-1.5 rounded-lg">
-              Sign Out
-            </Button>
-          </div>
-        </div>
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-slate-50">Documents</h1>
+        <p className="text-slate-400 text-sm">Upload, view and manage your documents</p>
+      </div>
 
-        {/* Avatar + basic */}
-        <div className="flex items-center gap-4 mb-8">
-          <div className="relative">
-            {displayAvatar ? (
-              <img
-                src={displayAvatar}
-                onError={() => setAvatarUrl('')}
-                alt="Avatar"
-                className="w-20 h-20 rounded-full object-cover border border-slate-700"
-              />
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-slate-700 text-slate-200 flex items-center justify-center text-xl font-semibold">
-                {initials}
+      {/* Upload Modal */}
+      {isUploading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsUploading(false)} />
+          <div className="relative z-10 w-full max-w-lg mx-auto">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
+                <h3 className="text-sm font-medium text-slate-50">Upload Document</h3>
+                <button
+                  className="text-slate-400 hover:text-slate-200 transition"
+                  onClick={() => setIsUploading(false)}
+                  aria-label="Close upload"
+                >
+                  ✕
+                </button>
               </div>
-            )}
-            {isEditing && (
-              <button
-                type="button"
-                onClick={onPickAvatar}
-                className="absolute -bottom-2 -right-2 text-xs bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded-md border border-slate-600"
-              >
-                Change
-              </button>
-            )}
-          </div>
-
-          {isEditing && (avatarFile || avatarUrl) && (
-            <button
-              type="button"
-              onClick={onRemoveAvatar}
-              className="text-xs bg-transparent text-slate-300 hover:text-white underline"
-            >
-              Remove photo
-            </button>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={onFileChange}
-          />
-        </div>
-
-        {/* Form */}
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Name</label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  name="name"
-                  value={profile.name}
-                  onChange={handleInputChange}
-                  className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm"
+              <div className="p-4">
+                <DocumentUpload
+                  onSuccess={() => {
+                    setIsUploading(false);
+                    loadDocuments();
+                  }}
+                  onCancel={() => setIsUploading(false)}
                 />
-              ) : (
-                <p className="text-white text-sm">{profile.name || 'Not set'}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Email</label>
-              <p className="text-white text-sm">{user.email}</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Phone</label>
-              {isEditing ? (
-                <input
-                  type="tel"
-                  name="phone"
-                  value={profile.phone}
-                  onChange={handleInputChange}
-                  className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm"
-                />
-              ) : (
-                <p className="text-white text-sm">{profile.phone || 'Not set'}</p>
-              )}
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-slate-400 mb-1">Address</label>
-              {isEditing ? (
-                <textarea
-                  name="address"
-                  value={profile.address}
-                  onChange={handleInputChange}
-                  rows="3"
-                  className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm"
-                />
-              ) : (
-                <p className="text-white text-sm whitespace-pre-line">{profile.address || 'Not set'}</p>
-              )}
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* List */}
+      <div className="bg-slate-800 rounded-2xl p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <h2 className="text-lg font-medium text-slate-50">All Documents</h2>
+          <div className="flex w-full md:w-auto items-center gap-2 flex-wrap sm:flex-nowrap">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search documents..."
+              className="min-w-0 basis-full sm:basis-auto flex-1 md:w-72 bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-3 py-2 placeholder-slate-400"
+            />
+            <Button onClick={() => setQuery((q) => q.trim())} variant="outline" className="text-sm shrink-0 w-full sm:w-auto">Search</Button>
+            <Button onClick={() => setIsUploading(true)} variant="primary" className="text-sm shrink-0 w-full sm:w-auto">Upload</Button>
+          </div>
+        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-40"><LoadingSpinner size="lg" /></div>
+        ) : filteredDocs.length === 0 ? (
+          <p className="text-slate-400 text-sm">No documents uploaded yet.</p>
+        ) : (
+          <ul>
+            {filteredDocs.map((doc) => (
+              <li key={doc.id} className="py-4 border-b border-white/60 last:border-b-0 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-indigo-500/15 text-indigo-300 grid place-items-center">📄</div>
+                <div className="flex-1 min-w-0">
+                  {editingId === doc.id ? (
+                    <input
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      className="w-full bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-2 py-1"
+                    />
+                  ) : (
+                    <p className="font-medium break-words sm:truncate">{doc.title || doc.filename}</p>
+                  )}
+                  <p className="text-xs text-slate-400 break-words sm:truncate">{doc.filename} • {doc.contentType} • {Math.round((doc.size || 0)/1024)} KB</p>
+                </div>
+                {editingId === doc.id ? (
+                  <div className="flex gap-2">
+                    <Button onClick={onSaveTitle} size="sm">Save</Button>
+                    <Button onClick={() => setEditingId(null)} variant="outline" size="sm">Cancel</Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 sm:self-auto self-start">
+                    <Button onClick={() => previewDocument(doc.id)} size="sm" variant="outline">Open</Button>
+                    <Button onClick={() => onStartEdit(doc)} size="sm" variant="outline">Rename</Button>
+                    <Button onClick={() => onDelete(doc.id, doc.title)} size="sm" variant="danger">Delete</Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
+import { CATEGORIES } from '@/constants/categories';
 import { showToast } from '@/lib/ui';
 import { Button } from '@/components/ui/Button';
 
@@ -22,25 +23,25 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   const [isFormVisible, setIsFormVisible] = useState(false);
   const router = useRouter();
 
+  // Ensure inputs behave nicely on focus on mobile/desktop
+  const handleInputFocus = (e) => {
+    try {
+      // Select text for quick overwrite on focus
+      if (e?.target?.select) {
+        e.target.select();
+      }
+    } catch (_) {
+      // no-op
+    }
+  };
+
   const transactionTypes = [
     { value: 'expense', label: 'Expense' },
     { value: 'income', label: 'Income' },
     { value: 'transfer', label: 'Transfer' },
   ];
 
-  const categories = [
-    'Food & Drinks',
-    'Shopping',
-    'Housing',
-    'Transportation',
-    'Vehicle',
-    'Life & Entertainment',
-    'Communication',
-    'Financial Expenses',
-    'Investments',
-    'Income',
-    'Other',
-  ];
+  const categories = CATEGORIES;
 
   useEffect(() => {
     const fetchAccounts = async () => {

@@ -6,8 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import AddTransactionButton from '@/components/AddTransactionButton';
 import { formatINR } from '@/lib/format';
 import Card from '@/components/Card';
-import PageHeader from '@/components/PageHeader';
-import Table from '@/components/Table';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/Button';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -19,6 +17,7 @@ function Dashboard() {
   const [documentCount, setDocumentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  const [totals, setTotals] = useState({ spent: 0, earned: 0 });
   
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -31,7 +30,7 @@ function Dashboard() {
       const netWorthData = await netWorthResponse.json();
       
       // Fetch recent transactions
-      const transactionsResponse = await fetch('/api/transactions?limit=5&sort=created_on');
+      const transactionsResponse = await fetch('/api/transactions?limit=25&sort=created_on');
       if (!transactionsResponse.ok) {
         throw new Error(`HTTP error! status: ${transactionsResponse.status}`);
       }
@@ -63,7 +62,19 @@ function Dashboard() {
         setDocumentCount(documentsData.data.length || 0);
       }
       
-      setRecentTransactions(transactionsData.data || []);
+      const txns = transactionsData.data || [];
+      setRecentTransactions(txns);
+      // Compute totals for donut: earned vs spent
+      let spent = 0;
+      let earned = 0;
+      for (const t of txns) {
+        if (t.type === 'income') {
+          earned += Math.abs(Number(t.amount) || 0);
+        } else {
+          spent += Math.abs(Number(t.amount) || 0);
+        }
+      }
+      setTotals({ spent, earned });
     } catch (error) {
       // You might want to show an error toast here
     } finally {
@@ -82,93 +93,147 @@ function Dashboard() {
       </div>
     );
   }
-  const transactionColumns = [
-        { key: 'date', header: 'Date', render: (txn) => new Date(txn.created_on).toLocaleDateString() },
-    { key: 'description', header: 'Description', render: (txn) => txn.note || txn.category },
-    { 
-      key: 'amount', 
-      header: 'Amount', 
-      render: (txn) => (
-        <span className={txn.type === 'income' ? 'text-green-600' : 'text-red-600'}>
-          {formatINR(txn.amount)}
-        </span>
-      ) 
-    },
-  ];
+  const totalAmount = totals.spent + totals.earned;
+  const earnedPct = totalAmount ? Math.round((totals.earned / totalAmount) * 100) : 0;
+  const spentPct = 100 - earnedPct;
 
   return (
-    <div>
-      <PageHeader 
-        title="Dashboard"
-        actions={<AddTransactionButton onTransactionAdded={loadData} />}
-      />
+    <div className="space-y-6">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-indigo-600 via-blue-600 to-sky-500">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-blue-100 text-sm">Hello{user?.name ? ',' : ''}</p>
+            <h1 className="text-2xl font-bold text-white">{user?.name || 'Welcome back'}</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <AddTransactionButton onTransactionAdded={loadData} />
+          </div>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 gap-6 mt-6 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Balance + Donut */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card>
-          <h3 className="text-lg font-medium text-slate-50">Net Worth</h3>
-          <p className={`mt-2 text-3xl font-semibold ${netWorth.networth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {formatINR(netWorth.networth)}
-          </p>
-          <Button 
-            as={Link} 
-            href="/accounts" 
-            variant="link" 
-            className="mt-2 text-sm"
-          >
-            View all wealth →
-          </Button>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-slate-400">Available Balance</p>
+              <p className={`mt-2 text-4xl font-semibold ${netWorth.networth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {formatINR(netWorth.networth)}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-400">Accounts</p>
+              <p className="text-lg font-medium">{accountCount}</p>
+              <p className="text-xs text-slate-400 mt-2">Documents</p>
+              <p className="text-lg font-medium">{documentCount}</p>
+            </div>
+          </div>
+          <div className="mt-3">
+            <Button as={Link} href="/accounts" variant="link" className="text-sm">
+              View all wealth →
+            </Button>
+          </div>
         </Card>
 
         <Card>
-          <h3 className="text-lg font-medium text-slate-50">Accounts</h3>
-          <p className="mt-2 text-3xl font-semibold">
-            {accountCount} {accountCount === 1 ? 'account' : 'accounts'}
-          </p>
-          <Button 
-            as={Link} 
-            href="/accounts" 
-            variant="link" 
-            className="mt-2 text-sm"
-          >
-            View all accounts →
-          </Button>
-        </Card>
-
-        <Card>
-          <h3 className="text-lg font-medium text-slate-50">Documents</h3>
-          <p className="mt-2 text-3xl font-semibold">
-            {documentCount} {documentCount === 1 ? 'document' : 'documents'}
-          </p>
-          <Button 
-            as={Link} 
-            href="/documents" 
-            variant="link" 
-            className="mt-2 text-sm"
-          >
-            View all documents →
-          </Button>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-slate-50">This Period</h3>
+          </div>
+          <div className="mt-4 flex items-center gap-6">
+            {/* Donut */}
+            <div className="relative h-28 w-28 shrink-0" aria-label={`Earned ${earnedPct}% Spent ${spentPct}%`}>
+              <div
+                className="h-full w-full rounded-full"
+                style={{
+                  background: `conic-gradient(#10b981 0% ${earnedPct}%, #ef4444 ${earnedPct}% 100%)`,
+                }}
+              />
+              <div className="absolute inset-3 rounded-full bg-[var(--card)]" />
+            </div>
+            {/* Legend */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="h-3 w-3 rounded-full bg-emerald-500" />
+                <div>
+                  <p className="text-sm text-slate-400">Earned</p>
+                  <p className="font-medium">{formatINR(totals.earned)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="h-3 w-3 rounded-full bg-red-500" />
+                <div>
+                  <p className="text-sm text-slate-400">Spent</p>
+                  <p className="font-medium">{formatINR(totals.spent)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </Card>
       </div>
 
-      <div className="mt-8">
+      {/* Services */}
+      <Card>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-slate-50">Recent Transactions</h2>
-          <Button 
-            as={Link} 
-            href="/transactions" 
-            variant="link" 
-            className="text-sm"
-          >
-            View all transactions →
+          <h3 className="text-lg font-medium text-slate-50">Services</h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Link href="/accounts" className="group">
+            <div className="rounded-xl bg-slate-800/60 hover:bg-slate-800 transition p-4 text-center">
+              <div className="mx-auto h-8 w-8 rounded-lg bg-blue-600/20 text-blue-300 grid place-items-center">🏦</div>
+              <div className="mt-2 text-sm">Banks</div>
+            </div>
+          </Link>
+          <Link href="/documents" className="group">
+            <div className="rounded-xl bg-slate-800/60 hover:bg-slate-800 transition p-4 text-center">
+              <div className="mx-auto h-8 w-8 rounded-lg bg-indigo-600/20 text-indigo-300 grid place-items-center">📄</div>
+              <div className="mt-2 text-sm">Documents</div>
+            </div>
+          </Link>
+          <Link href="/transactions" className="group">
+            <div className="rounded-xl bg-slate-800/60 hover:bg-slate-800 transition p-4 text-center">
+              <div className="mx-auto h-8 w-8 rounded-lg bg-amber-600/20 text-amber-300 grid place-items-center">🧾</div>
+              <div className="mt-2 text-sm">Transactions</div>
+            </div>
+          </Link>
+          <Link href="/profile" className="group">
+            <div className="rounded-xl bg-slate-800/60 hover:bg-slate-800 transition p-4 text-center">
+              <div className="mx-auto h-8 w-8 rounded-lg bg-fuchsia-600/20 text-fuchsia-300 grid place-items-center">👤</div>
+              <div className="mt-2 text-sm">Profile</div>
+            </div>
+          </Link>
+        </div>
+      </Card>
+
+      {/* Spendings List */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium text-slate-50">Spendings</h2>
+          <Button as={Link} href="/transactions" variant="link" className="text-sm">
+            View all →
           </Button>
         </div>
-        
         <Card>
-          <Table 
-            columns={transactionColumns} 
-            data={recentTransactions} 
-            emptyState="No recent transactions. Add your first transaction!"
-          />
+          {recentTransactions.length === 0 ? (
+            <div className="p-6 text-sm text-slate-400">No recent transactions. Add your first transaction!</div>
+          ) : (
+            <ul className="divide-y divide-slate-700/60">
+              {recentTransactions.slice(0, 7).map((txn) => (
+                <li key={txn.id || txn._id || txn.created_on} className="flex items-center gap-3 p-4">
+                  <div className={`h-10 w-10 rounded-full grid place-items-center text-sm font-semibold ${txn.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                    {txn.category?.[0]?.toUpperCase() || '₹'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate font-medium">{txn.note || txn.category || 'Transaction'}</p>
+                    <p className="text-xs text-slate-400">{new Date(txn.created_on).toLocaleDateString()}</p>
+                  </div>
+                  <div className={`text-right shrink-0 ${txn.type === 'income' ? 'text-emerald-500' : 'text-red-500'}`}>
+                    {txn.type === 'income' ? '+' : '-'}{formatINR(Math.abs(txn.amount))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       </div>
     </div>

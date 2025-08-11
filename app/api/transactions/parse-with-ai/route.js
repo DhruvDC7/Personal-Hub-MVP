@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { requireAuth } from '@/middleware/auth';
+import { CATEGORIES } from '@/constants/categories';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
 
@@ -8,21 +9,7 @@ const model = genAI.getGenerativeModel({
   generationConfig: { responseMimeType: 'application/json' },
 });
 
-const categories = [
-  'Food & Drinks',
-  'Shopping',
-  'Housing',
-  'Transportation',
-  'Vehicle',
-  'Life & Entertainment',
-  'Communication',
-  'Financial Expenses',
-  'Investments',
-  'Income',
-  'Insurance',
-  'EMI Payment',
-  'Other',
-];
+const categories = CATEGORIES;
 
 const systemPrompt = `
 You are an intelligent financial assistant. Your task is to parse a user's natural language note about a transaction and extract the following details in a structured JSON format:
