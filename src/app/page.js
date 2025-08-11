@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import AddTransactionButton from '@/components/AddTransactionButton';
 import { formatINR } from '@/lib/format';
@@ -11,20 +10,14 @@ import PageHeader from '@/components/PageHeader';
 import Table from '@/components/Table';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/Button';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 function Dashboard() {
   const [netWorth, setNetWorth] = useState({ networth: 0, currency: 'INR' });
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [accountCount, setAccountCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  
-  useEffect(() => {
-    if (!loading && !user) {
-      router.replace('/login');
-    }
-  }, [loading, user, router]);
+  const { user } = useAuth();
   
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -61,7 +54,7 @@ function Dashboard() {
     loadData();
   }, [loadData]);
 
-  if (loading || isLoading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="lg" />
@@ -163,5 +156,9 @@ function Dashboard() {
 }
 
 export default function Page() {
-  return <Dashboard />;
+  return (
+    <ProtectedRoute>
+      <Dashboard />
+    </ProtectedRoute>
+  );
 }

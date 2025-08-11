@@ -27,7 +27,8 @@ export default function ProfilePage() {
             ...prev,
             email: data.user?.email || '',
             name: data.user?.name || '',
-            phone: data.user?.phone || ''
+            phone: data.user?.phone || '',
+            address: data.user?.address || ''
           }));
         }
       } catch (error) {
@@ -59,7 +60,11 @@ export default function ProfilePage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: profile.name, phone: profile.phone }),
+        body: JSON.stringify({ 
+          name: profile.name, 
+          phone: profile.phone,
+          address: profile.address 
+        }),
       });
 
       if (response.ok) {

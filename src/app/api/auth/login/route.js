@@ -64,19 +64,20 @@ export async function POST(req) {
     const refreshToken = signRefresh(payload);
     const now = dayjs().tz('Asia/Kolkata').toISOString();
     await MongoClientUpdateOne('users', { _id: payload.userId }, { $set: { lastLoginAt: now, updatedAt: now } });
+    const isProduction = process.env.NODE_ENV === 'production';
     const headers = {
       'Set-Cookie': [
         cookie.serialize('access_token', accessToken, {
           httpOnly: true,
-          secure: true,
-          sameSite: 'strict',
+          secure: isProduction,
+          sameSite: isProduction ? 'strict' : 'lax',
           path: '/',
           maxAge: parseExpires(process.env.JWT_EXPIRES_IN || '15m'),
         }),
         cookie.serialize('refresh_token', refreshToken, {
           httpOnly: true,
-          secure: true,
-          sameSite: 'strict',
+          secure: isProduction,
+          sameSite: isProduction ? 'strict' : 'lax',
           path: '/',
           maxAge: parseExpires(process.env.JWT_REFRESH_EXPIRES_IN || '7d'),
         }),
