@@ -26,21 +26,23 @@ export default function Modal({ open, onClose, title, children }) {
         onClick={onClose}
       />
       <div
-        className="fixed inset-0 z-50 grid place-items-center p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
         onClick={onClose}
       >
         <div
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          className="z-[60] w-full max-w-2xl rounded-xl bg-[var(--card)] shadow-xl border border-[var(--border)] text-[var(--foreground)]"
+          className="z-[60] w-full max-w-2xl max-h-[90vh] rounded-xl bg-[var(--card)] shadow-xl border border-[var(--border)] text-[var(--foreground)] flex flex-col"
         >
           {title && (
-            <div className="px-6 pt-5 pb-3 border-b border-[var(--border)]">
+            <div className="flex-shrink-0 px-6 pt-5 pb-3 border-b border-[var(--border)]">
               <h2 className="text-lg font-medium">{title}</h2>
             </div>
           )}
-          <div className="p-6">{children}</div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {children}
+          </div>
         </div>
       </div>
     </>,

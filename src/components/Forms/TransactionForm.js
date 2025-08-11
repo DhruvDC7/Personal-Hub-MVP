@@ -240,6 +240,8 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
             name="amount"
             value={formData.amount}
             onChange={handleChange}
+            onFocus={handleInputFocus}
+            inputMode="decimal"
             className="block w-full bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 pl-12 pr-4 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm rounded-lg transition-colors"
             required
           />
@@ -277,6 +279,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           rows={3}
           value={formData.note}
           onChange={handleChange}
+          onFocus={handleInputFocus}
           className="mt-1 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
         />
       </div>
