@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,58 +40,53 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-slate-800 rounded-lg shadow-lg">
-      <h1 className="text-2xl font-bold mb-6 text-center">
+    <div className="max-w-md mx-auto mt-10 p-8 bg-[var(--card)] rounded-xl border border-[var(--border)] shadow-2xl">
+      <h1 className="text-3xl font-bold mb-8 text-center text-white">
         Welcome to Personal Hub
       </h1>
       
       {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+        <div className="mb-6 p-4 bg-red-900/30 border border-red-500/50 text-red-200 rounded-lg">
           {error}
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-1">
+          <label htmlFor="email" className="block text-sm font-medium text-[var(--muted)] mb-2">
             Email
           </label>
           <input
-            id="email"
             type="email"
-            placeholder="Enter your email"
+            id="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-3 bg-slate-700 border border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 bg-[var(--input)] border border-[var(--border)] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-colors"
             required
           />
         </div>
-        
+
         <div>
-          <label htmlFor="password" className="block text-sm font-medium mb-1">
+          <label htmlFor="password" className="block text-sm font-medium text-[var(--muted)] mb-2">
             Password
           </label>
           <input
-            id="password"
             type="password"
-            placeholder="Enter your password"
+            id="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 bg-slate-700 border border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 bg-[var(--input)] border border-[var(--border)] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-colors"
             required
-            minLength={6}
           />
         </div>
-        
-        <button
+
+        <Button
           type="submit"
-          disabled={isLoading}
-          className={`w-full py-3 px-4 rounded-md text-white font-medium ${
-            isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
-          } transition-colors`}
+          isLoading={isLoading}
+          className="w-full"
         >
           {isLoading ? 'Signing in...' : 'Sign In'}
-        </button>
+        </Button>
       </form>
     </div>
   );

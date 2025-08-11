@@ -13,16 +13,16 @@ export function Toast() {
   if (!items.length) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 space-y-2 z-50">
+    <div className="fixed bottom-4 right-4 space-y-3 z-50">
       {items.map((t) => (
         <div
           key={t.id}
-          className={`rounded-lg px-4 py-3 shadow-lg bg-slate-800 border ${
+          className={`rounded-lg px-4 py-3 shadow-lg bg-[var(--card)] border ${
             t.type === 'error'
-              ? 'border-red-500 text-red-200'
+              ? 'border-red-500/80 text-red-200'
               : t.type === 'success'
-              ? 'border-emerald-500 text-emerald-200'
-              : 'border-sky-400 text-sky-200'
+              ? 'border-green-500/80 text-green-200'
+              : 'border-[var(--accent)] text-[var(--accent)]'
           }`}
         >
           <p className="text-sm font-medium">{t.message}</p>

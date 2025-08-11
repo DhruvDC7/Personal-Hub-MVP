@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatINR } from '@/lib/format';
+import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
 import Card from '@/components/Card';
@@ -10,6 +11,7 @@ import Table from '@/components/Table';
 import Modal from '@/components/Modal';
 import AccountForm from '@/components/Forms/AccountForm';
 import PageHeader from '@/components/PageHeader';
+import { LoadingBlock } from '@/components/ui/LoadingSpinner';
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState([]);
@@ -86,21 +88,25 @@ export default function AccountsPage() {
       header: 'Actions',
       render: (account) => (
         <div className="flex space-x-2">
-          <button
+          <Button
             onClick={() => {
               setEditingAccount(account);
               setIsModalOpen(true);
             }}
-            className="text-sky-400 hover:text-sky-500"
+            variant="ghost"
+            className="text-sky-400 hover:bg-sky-500/10"
+            size="sm"
           >
             Edit
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => handleDelete(account.id)}
-            className="text-red-600 hover:text-red-500"
+            variant="ghost"
+            className="text-red-600 hover:bg-red-600/10"
+            size="sm"
           >
             Delete
-          </button>
+          </Button>
         </div>
       ),
     },
@@ -116,24 +122,21 @@ export default function AccountsPage() {
       <PageHeader
         title="Accounts"
         actions={
-          <button
-            type="button"
+          <Button
             onClick={() => {
               setEditingAccount(null);
               setIsModalOpen(true);
             }}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
+            variant="primary"
           >
             Add Account
-          </button>
+          </Button>
         }
       />
 
       <Card>
         {isLoading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-400"></div>
-          </div>
+          <LoadingBlock />
         ) : (
           <Table 
             columns={columns} 
@@ -141,12 +144,13 @@ export default function AccountsPage() {
             emptyState={
               <div className="text-center py-8">
                 <p className="text-slate-400 mb-4">No accounts found</p>
-                <button
+                <Button
                   onClick={() => setIsModalOpen(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
+                  variant="primary"
+                  className="mt-2"
                 >
                   Add Your First Account
-                </button>
+                </Button>
               </div>
             }
           />

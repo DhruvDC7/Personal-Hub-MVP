@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, uploadFile } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
+import { Button } from '@/components/ui/Button';
 
 export default function DocumentUpload({ onSuccess, onCancel }) {
   const [file, setFile] = useState(null);
@@ -67,12 +68,12 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-700 border-dashed rounded-md bg-slate-900 text-slate-100">
-          <div className="space-y-1 text-center">
+        <div className="mt-1 flex justify-center px-6 pt-8 pb-8 border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--input)]">
+          <div className="space-y-3 text-center">
             <svg
-              className="mx-auto h-12 w-12 text-slate-300"
+              className="mx-auto h-12 w-12 text-[var(--muted)]"
               stroke="currentColor"
               fill="none"
               viewBox="0 0 48 48"
@@ -85,12 +86,12 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
                 strokeLinejoin="round"
               />
             </svg>
-            <div className="flex text-sm text-slate-100">
+            <div className="flex flex-col items-center text-sm">
               <label
                 htmlFor="file-upload"
-                className="relative cursor-pointer bg-transparent rounded-md font-medium text-sky-400 hover:text-sky-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-sky-400 focus-within:ring-offset-0"
+                className="relative cursor-pointer rounded-lg font-medium text-[var(--accent)] hover:text-[var(--accent-hover)] focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--accent)] focus-within:ring-offset-2 px-3 py-1.5 transition-colors"
               >
-                <span>Upload a file</span>
+                <span>Choose a file</span>
                 <input
                   id="file-upload"
                   name="file-upload"
@@ -100,49 +101,47 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
                   ref={fileInputRef}
                 />
               </label>
-              <p className="pl-1">or drag and drop</p>
+              <p className="text-[var(--muted)] mt-1">or drag and drop</p>
             </div>
-            <p className="text-xs text-slate-300">PDF, JPG, PNG, DOCX up to 10MB</p>
-            {file && (
-              <p className="text-sm text-slate-100 truncate">
-                Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-              </p>
-            )}
+            <p className="text-xs text-[var(--muted)]">PDF, JPG, PNG, DOCX up to 10MB</p>
           </div>
         </div>
+        {file && (
+          <p className="mt-2 text-sm text-[var(--foreground)] font-medium truncate">
+            Selected: <span className="text-[var(--muted)]">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+          </p>
+        )}
       </div>
 
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-slate-300">
-          Title
+        <label htmlFor="title" className="block text-sm font-medium text-[var(--muted)] mb-1">
+          Document Title
         </label>
         <input
           type="text"
           id="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
           placeholder="Enter a title for this document"
           required
         />
       </div>
 
-      <div className="flex justify-end space-x-3 pt-4">
-        <button
+      <div className="flex justify-end space-x-3 pt-2">
+        <Button
           type="button"
           onClick={onCancel}
-          className="inline-flex justify-center rounded-lg border border-sky-400 bg-transparent py-2 px-4 text-sm font-medium text-sky-400 shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
-          disabled={isUploading}
+          variant="outline"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
-          disabled={!file || isUploading}
-          className="inline-flex justify-center rounded-lg border border-transparent bg-sky-400 hover:bg-sky-500 py-2 px-4 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0 disabled:opacity-50"
+          isLoading={isUploading}
         >
           {isUploading ? 'Uploading...' : 'Upload Document'}
-        </button>
+        </Button>
       </div>
     </form>
   );

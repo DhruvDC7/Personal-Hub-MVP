@@ -22,7 +22,7 @@ export default function Modal({ open, onClose, title, children }) {
   return createPortal(
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
@@ -33,14 +33,14 @@ export default function Modal({ open, onClose, title, children }) {
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          className="z-[60] w-full max-w-2xl rounded-xl bg-slate-800/95 shadow-xl ring-1 ring-slate-700 text-slate-100"
+          className="z-[60] w-full max-w-2xl rounded-xl bg-[var(--card)] shadow-xl border border-[var(--border)] text-[var(--foreground)]"
         >
           {title && (
-            <div className="px-6 pt-4 pb-2">
-              <h2 className="text-lg font-medium text-slate-100">{title}</h2>
+            <div className="px-6 pt-5 pb-3 border-b border-[var(--border)]">
+              <h2 className="text-lg font-medium">{title}</h2>
             </div>
           )}
-          <div className="px-6 pb-6">{children}</div>
+          <div className="p-6">{children}</div>
         </div>
       </div>
     </>,

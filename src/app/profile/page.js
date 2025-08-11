@@ -2,6 +2,8 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
@@ -12,6 +14,8 @@ export default function ProfilePage() {
     address: ''
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -26,7 +30,10 @@ export default function ProfilePage() {
             phone: data.user?.phone || ''
           }));
         }
-      } catch {
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -45,6 +52,7 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const response = await fetch('/api/me', {
         method: 'PUT',
@@ -56,12 +64,20 @@ export default function ProfilePage() {
 
       if (response.ok) {
         setIsEditing(false);
+        // Show success toast
+        showToast({ type: 'success', message: 'Profile updated successfully' });
       } else {
-        // Handle errors, e.g., show a notification
-        console.error('Failed to update profile');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update profile');
       }
     } catch (error) {
-      console.error('An error occurred while updating the profile', error);
+      console.error('Profile update error:', error);
+      showToast({ 
+        type: 'error', 
+        message: error.message || 'An error occurred while updating the profile' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -72,7 +88,15 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <p>Please log in to view your profile.</p>
+        <p className="text-slate-200">Please log in to view your profile.</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -84,34 +108,38 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold text-slate-50">Profile</h1>
           <div className="flex items-center space-x-2">
             {!isEditing ? (
-              <button
+              <Button
                 onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 transition-colors"
+                variant="primary"
               >
                 Edit Profile
-              </button>
+              </Button>
             ) : (
               <>
-                <button
+                <Button
                   onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors"
+                  variant="outline"
+                  className="mr-2"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleSubmit}
-                  className="px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 transition-colors"
+                  variant="primary"
+                  isLoading={isSaving}
+                  loadingText="Saving..."
                 >
                   Save Changes
-                </button>
+                </Button>
               </>
             )}
-            <button
+            <Button
               onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              variant="danger"
+              className="ml-2"
             >
               Sign Out
-            </button>
+            </Button>
           </div>
         </div>
 

@@ -10,6 +10,8 @@ import Table from '@/components/Table';
 import Modal from '@/components/Modal';
 import DocumentUpload from '@/components/Forms/DocumentUpload';
 import PageHeader from '@/components/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { LoadingBlock } from '@/components/ui/LoadingSpinner';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
@@ -96,20 +98,25 @@ export default function DocumentsPage() {
       header: 'Actions',
       render: (doc) => (
         <div className="flex space-x-2">
-          <a
+          <Button
+            as="a"
             href={doc.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sky-400 hover:text-sky-500"
+            variant="ghost"
+            size="sm"
+            className="text-sky-400 hover:bg-sky-500/10"
           >
             View
-          </a>
-          <button
+          </Button>
+          <Button
             onClick={() => handleDelete(doc.id)}
-            className="text-red-600 hover:text-red-500"
+            variant="ghost"
+            size="sm"
+            className="text-red-600 hover:bg-red-600/10"
           >
             Delete
-          </button>
+          </Button>
         </div>
       ),
     },
@@ -120,21 +127,18 @@ export default function DocumentsPage() {
       <PageHeader
         title="Documents"
         actions={
-          <button
-            type="button"
+          <Button
             onClick={() => setIsUploadModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
+            variant="primary"
           >
             Upload Document
-          </button>
+          </Button>
         }
       />
 
       <Card>
         {isLoading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-400"></div>
-          </div>
+          <LoadingBlock />
         ) : (
           <Table 
             columns={columns} 
@@ -142,13 +146,13 @@ export default function DocumentsPage() {
             emptyState={
               <div className="text-center py-8">
                 <p className="text-slate-400 mb-4">No documents found</p>
-                <button
-                  type="button"
+                <Button
                   onClick={() => setIsUploadModalOpen(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-sky-400 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
+                  variant="primary"
+                  className="mt-2"
                 >
                   Upload Your First Document
-                </button>
+                </Button>
               </div>
             }
           />

@@ -7,6 +7,8 @@ import { formatINR } from '@/lib/format';
 import Card from '@/components/Card';
 import PageHeader from '@/components/PageHeader';
 import Table from '@/components/Table';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { Button } from '@/components/ui/Button';
 
 function Dashboard() {
   const [netWorth, setNetWorth] = useState({ networth: 0, currency: 'INR' });
@@ -52,7 +54,7 @@ function Dashboard() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-400"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -84,6 +86,14 @@ function Dashboard() {
           <p className={`mt-2 text-3xl font-semibold ${netWorth.networth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatINR(netWorth.networth)}
           </p>
+          <Button 
+            as={Link} 
+            href="/accounts" 
+            variant="link" 
+            className="mt-2 text-sm"
+          >
+            View all accounts →
+          </Button>
         </Card>
 
         <Card>
@@ -91,12 +101,14 @@ function Dashboard() {
           <p className="mt-2 text-3xl font-semibold">
             {accountCount} {accountCount === 1 ? 'account' : 'accounts'}
           </p>
-          <Link 
+          <Button 
+            as={Link} 
             href="/accounts" 
-            className="mt-2 text-sm text-sky-400 hover:text-sky-500"
+            variant="link" 
+            className="mt-2 text-sm"
           >
             View all accounts →
-          </Link>
+          </Button>
         </Card>
 
         <Card>
@@ -104,24 +116,28 @@ function Dashboard() {
           <p className="mt-2 text-3xl font-semibold">
             {netWorth.documentCount || 0} documents
           </p>
-          <Link 
+          <Button 
+            as={Link} 
             href="/documents" 
-            className="mt-2 text-sm text-sky-400 hover:text-sky-500"
+            variant="link" 
+            className="mt-2 text-sm"
           >
             View all documents →
-          </Link>
+          </Button>
         </Card>
       </div>
 
       <div className="mt-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-slate-50">Recent Transactions</h2>
-          <Link 
+          <Button 
+            as={Link} 
             href="/transactions" 
-            className="text-sm text-sky-400 hover:text-sky-500"
+            variant="link" 
+            className="text-sm"
           >
             View all transactions →
-          </Link>
+          </Button>
         </div>
         
         <Card>

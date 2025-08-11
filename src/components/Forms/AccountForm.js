@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
+import { Button } from '@/components/ui/Button';
 
 export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
@@ -58,9 +59,9 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="name" className="block text-sm font-medium text-[var(--muted)] mb-1.5">
           Account Name
         </label>
         <input
@@ -69,14 +70,14 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
           name="name"
           value={formData.name}
           onChange={handleChange}
-          placeholder="Please enter account name"
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-base"
+          placeholder="Enter account name"
+          className="mt-1 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
           required
         />
       </div>
 
       <div>
-        <label htmlFor="type" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="type" className="block text-sm font-medium text-[var(--muted)] mb-1.5">
           Account Type
         </label>
         <select
@@ -84,12 +85,11 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
           name="type"
           value={formData.type}
           onChange={handleChange}
-          placeholder="Please enter account type"
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-base"
+          className="mt-1 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 pl-3 pr-10 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
           required
         >
           {accountTypes.map((type) => (
-            <option key={type.value} value={type.value}>
+            <option key={type.value} value={type.value} className="bg-[var(--card)]">
               {type.label}
             </option>
           ))}
@@ -97,42 +97,42 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
       </div>
 
       <div>
-        <label htmlFor="balance" className="block text-sm font-medium text-slate-300">
-          Current Balance
+        <label htmlFor="balance" className="block text-sm font-medium text-[var(--muted)] mb-1.5">
+          Initial Balance
         </label>
-        <div className="mt-1 relative rounded-md shadow-sm">
+        <div className="mt-1 relative rounded-lg">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="text-slate-300 sm:text-sm">₹</span>
+            <span className="text-[var(--muted)] text-sm">$</span>
           </div>
           <input
             type="number"
-            step="0.01"
             id="balance"
             name="balance"
             value={formData.balance}
             onChange={handleChange}
-            placeholder="Please enter account balance"
-              className="pl-7 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-base"
+            placeholder="0.00"
+            step="0.01"
+            className="pl-8 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 pr-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
             required
           />
         </div>
       </div>
 
-      <div className="flex justify-end space-x-3 pt-4">
-        <button
+      <div className="flex justify-end space-x-3 pt-2">
+        <Button
           type="button"
           onClick={onCancel}
-          className="inline-flex justify-center rounded-lg border border-sky-400 bg-transparent py-2 px-4 text-sm font-medium text-sky-400 shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
+          variant="outline"
+          disabled={isSubmitting}
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
-          disabled={isSubmitting}
-          className="inline-flex justify-center rounded-lg border border-transparent bg-sky-400 hover:bg-sky-500 py-2 px-4 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0 disabled:opacity-50"
+          isLoading={isSubmitting}
         >
           {isSubmitting ? 'Saving...' : 'Save Account'}
-        </button>
+        </Button>
       </div>
     </form>
   );
