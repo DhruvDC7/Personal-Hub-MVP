@@ -18,25 +18,25 @@ export default function Navbar() {
   
 
   return (
-    <nav className="bg-slate-800 border-b border-slate-700">
+    <nav className="bg-[var(--card)] border-b border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/" className="text-xl font-bold text-sky-400 hover:text-sky-300">
+              <Link href="/" className="text-xl font-bold text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors">
                 Personal Hub
               </Link>
             </div>
             {user && (
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+              <div className="hidden sm:ml-8 sm:flex sm:space-x-6">
                 {navItems.map((item) => (
                   <Link
                     key={item.path}
                     href={item.path}
                     className={`${
                       pathname === item.path
-                        ? 'border-sky-400 text-sky-400'
-                        : 'border-transparent text-slate-400 hover:border-slate-600 hover:text-slate-50'
+                        ? 'border-[var(--accent)] text-white'
+                        : 'border-transparent text-[var(--muted)] hover:text-white hover:border-[var(--border)]'
                     } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors`}
                   >
                     {item.name}

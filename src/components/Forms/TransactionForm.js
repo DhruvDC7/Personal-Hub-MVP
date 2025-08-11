@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
+import { Button } from '@/components/ui/Button';
 
 export default function TransactionForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
@@ -144,39 +145,45 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   };
 
   if (isLoading) {
-    return <div className="text-center py-4">Loading accounts...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <div className="w-8 h-8 border-4 border-[var(--border)] border-t-[var(--accent)] rounded-full animate-spin mb-3"></div>
+        <p className="text-[var(--muted)]">Loading accounts...</p>
+      </div>
+    );
   }
 
   return (
     <>
-      <div className="mb-4">
-        <label htmlFor="ai-note" className="block text-sm font-medium text-slate-300">
+      <div className="mb-6">
+        <label htmlFor="ai-note" className="block text-sm font-medium text-[var(--muted)] mb-1">
           Describe your transaction with AI
         </label>
-        <div className="mt-1 flex rounded-md shadow-sm">
+        <div className="flex rounded-lg overflow-hidden border border-[var(--border)] shadow-sm">
           <textarea
             id="ai-note"
             name="ai-note"
             rows={2}
             value={aiNote}
             onChange={(e) => setAiNote(e.target.value)}
-            className="flex-1 block w-full rounded-none rounded-l-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 focus:border-sky-400 sm:text-sm"
+            className="flex-1 block w-full bg-[var(--input)] text-[var(--foreground)] placeholder-[var(--muted)] border-0 focus:ring-1 focus:ring-[var(--accent)] sm:text-sm p-3"
             placeholder="e.g., paid 500 for rent"
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAiParse())}
           />
-          <button
+          <Button
             type="button"
             onClick={handleAiParse}
-            disabled={isParsing}
-            className="inline-flex items-center px-4 py-2 border border-l-0 border-sky-400 rounded-r-md bg-sky-400 text-sm font-medium text-white hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0 disabled:opacity-50"
+            isLoading={isParsing}
+            className="rounded-none"
           >
             {isParsing ? 'Parsing...' : 'Fill with AI'}
-          </button>
+          </Button>
         </div>
       </div>
       {isFormVisible && (
-        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="type" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="type" className="block text-sm font-medium text-[var(--muted)] mb-1">
           Transaction Type
         </label>
         <select
@@ -184,7 +191,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           name="type"
           value={formData.type}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
           required
         >
           {transactionTypes.map((type) => (
@@ -196,7 +203,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       </div>
 
       <div>
-        <label htmlFor="account_id" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="account_id" className="block text-sm font-medium text-[var(--muted)] mb-1">
           Account
         </label>
         <select
@@ -204,7 +211,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           name="account_id"
           value={formData.account_id}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
           required
         >
           {accounts.map((account) => (
@@ -216,12 +223,12 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       </div>
 
       <div>
-        <label htmlFor="amount" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="amount" className="block text-sm font-medium text-[var(--muted)] mb-1">
           Amount
         </label>
-        <div className="mt-1 relative rounded-md shadow-sm">
+        <div className="relative rounded-lg overflow-hidden">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="text-slate-300 sm:text-sm">
+            <span className="text-[var(--muted)] text-sm font-medium">
               {formData.type === 'expense' ? '-' : '+'} ₹
             </span>
           </div>
@@ -233,14 +240,14 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
             name="amount"
             value={formData.amount}
             onChange={handleChange}
-            className="pl-12 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
+            className="block w-full bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 pl-12 pr-4 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm rounded-lg transition-colors"
             required
           />
         </div>
       </div>
 
       <div>
-        <label htmlFor="category" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="category" className="block text-sm font-medium text-[var(--muted)] mb-1">
           Category
         </label>
         <select
@@ -248,7 +255,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           name="category"
           value={formData.category}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 py-2 pl-3 pr-10 text-base focus:border-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
           required
         >
           <option value="">Select a category</option>
@@ -261,7 +268,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       </div>
 
       <div>
-        <label htmlFor="note" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="note" className="block text-sm font-medium text-[var(--muted)] mb-1">
           Note (Optional)
         </label>
         <textarea
@@ -270,25 +277,24 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           rows={3}
           value={formData.note}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md bg-slate-900 text-slate-100 placeholder-slate-500 border border-slate-700 shadow-sm focus:border-sky-400 sm:text-sm"
+          className="mt-1 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
         />
       </div>
 
-      <div className="flex justify-end space-x-3 pt-4">
-        <button
+      <div className="flex justify-end space-x-3 pt-2">
+        <Button
           type="button"
           onClick={onCancel}
-          className="inline-flex justify-center rounded-lg border border-sky-400 bg-transparent py-2 px-4 text-sm font-medium text-sky-400 shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0"
+          variant="outline"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
-          disabled={isSubmitting}
-          className="inline-flex justify-center rounded-lg border border-transparent bg-sky-400 hover:bg-sky-500 py-2 px-4 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-0 disabled:opacity-50"
+          isLoading={isSubmitting}
         >
           {isSubmitting ? 'Saving...' : 'Save Transaction'}
-        </button>
+        </Button>
       </div>
     </form>
       )}

@@ -1,14 +1,18 @@
 @import "tailwindcss";
 
-/* Base dark theme variables (slate + sky accent) */
+/* Base dark theme variables (black + red accent) */
 :root {
-  --background: #0f172a; /* slate-900 */
-  --foreground: #f8fafc; /* slate-50 */
-  --muted: #94a3b8;      /* slate-400 */
-  --card: #1e293b;       /* slate-800 */
-  --border: #334155;     /* slate-700 */
-  --accent: #38bdf8;     /* sky-400 */
-  --accent-hover: #0ea5e9; /* sky-500 */
+  --background: #000000; /* Black background */
+  --foreground: #ffffff; /* White text */
+  --muted: #9ca3af;      /* Gray-400 for muted text */
+  --card: #111827;       /* Gray-900 for cards */
+  --input: #1f2937;      /* Gray-800 for input fields */
+  --border: #374151;     /* Gray-700 for borders */
+  --accent: #ef4444;     /* Red-500 for primary actions */
+  --accent-hover: #dc2626; /* Red-600 for hover states */
+  --success: #10b981;    /* Green-500 for success states */
+  --error: #ef4444;      /* Red-500 for errors */
+  --warning: #f59e0b;    /* Yellow-500 for warnings */
 }
 
 @theme inline {
