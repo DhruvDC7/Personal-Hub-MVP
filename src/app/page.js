@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import AddTransactionButton from '@/components/AddTransactionButton';
 import { formatINR } from '@/lib/format';
 import Card from '@/components/Card';
@@ -15,6 +17,14 @@ function Dashboard() {
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [accountCount, setAccountCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [loading, user, router]);
   
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -51,7 +61,7 @@ function Dashboard() {
     loadData();
   }, [loadData]);
 
-  if (isLoading) {
+  if (loading || isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="lg" />
