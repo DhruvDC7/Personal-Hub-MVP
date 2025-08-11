@@ -8,6 +8,7 @@
 - Added shared S3 helper with presign and delete utilities.
 - Updated client fetcher, components, and pages to follow `/api` conventions and refresh data after mutations.
 - Marked shared UI components as client components.
+- Introduced Personal Hub dashboard with stats cards, charts, and lists.
 
 ## Known TODOs
 - Support transaction transfers between accounts.
