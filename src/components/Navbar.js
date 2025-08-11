@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
 
 export default function Navbar() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const [avatarUrl, setAvatarUrl] = useState('');
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard' },
@@ -14,7 +17,28 @@ export default function Navbar() {
     { name: 'Transactions', path: '/transactions' },
     { name: 'Documents', path: '/documents' },
   ];
-  
+  // Load avatar once on mount and when user changes
+  useEffect(() => {
+    let revoked = false;
+    let objectUrl = '';
+    async function loadAvatar() {
+      try {
+        if (!user) { setAvatarUrl(''); return; }
+        const res = await fetch('/api/me/avatar');
+        if (!res.ok) { setAvatarUrl(''); return; }
+        const blob = await res.blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (!revoked) setAvatarUrl(objectUrl);
+      } catch {
+        setAvatarUrl('');
+      }
+    }
+    loadAvatar();
+    return () => {
+      revoked = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [user]);
   
 
   return (
@@ -52,9 +76,21 @@ export default function Navbar() {
                 className="flex items-center max-w-xs text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-white cursor-pointer hover:bg-slate-700 p-1 transition-colors"
               >
                 <span className="sr-only">Open user profile</span>
-                <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 hover:bg-slate-600 transition-colors">
-                  {user.email?.charAt(0).toUpperCase()}
-                </div>
+                {avatarUrl ? (
+                  <div className="relative h-8 w-8 rounded-full overflow-hidden">
+                    <Image
+                      src={avatarUrl}
+                      alt="User avatar"
+                      fill
+                      sizes="32px"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 hover:bg-slate-600 transition-colors">
+                    {user.email?.charAt(0).toUpperCase()}
+                  </div>
+                )}
               </Link>
             ) : (
               <Link 
