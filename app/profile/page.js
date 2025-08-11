@@ -33,7 +33,7 @@ export default function ProfilePage() {
           }));
         }
       } catch (error) {
-        console.error('Error fetching profile:', error);
+        // You might want to show an error toast here
       } finally {
         setIsLoading(false);
       }
@@ -77,7 +77,6 @@ export default function ProfilePage() {
         throw new Error(errorData.message || 'Failed to update profile');
       }
     } catch (error) {
-      console.error('Profile update error:', error);
       showToast({ 
         type: 'error', 
         message: error.message || 'An error occurred while updating the profile' 

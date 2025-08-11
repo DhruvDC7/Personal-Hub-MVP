@@ -53,7 +53,6 @@ function Dashboard() {
       
       setRecentTransactions(transactionsData.data || []);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
       // You might want to show an error toast here
     } finally {
       setIsLoading(false);
