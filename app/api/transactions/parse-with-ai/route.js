@@ -20,7 +20,7 @@ const categories = [
   'Investments',
   'Income',
   'Insurance',
-  'EMI',
+  'EMI Payment',
   'Other',
 ];
 

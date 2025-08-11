@@ -1,288 +1,282 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { formatDate } from '@/lib/format';
-import { api } from '@/lib/fetcher';
-import { downloadDocument, previewDocument, confirmAndDeleteDocument, updateDocumentTitle } from '@/lib/documents';
-import Card from '@/components/Card';
-import Table from '@/components/Table';
-import Modal from '@/components/Modal';
-import DocumentUpload from '@/components/Forms/DocumentUpload';
-import PageHeader from '@/components/PageHeader';
+import { useAuth } from '@/hooks/useAuth';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { LoadingBlock } from '@/components/ui/LoadingSpinner';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { showToast } from '@/lib/ui';
 
-export default function DocumentsPage() {
-  const [documents, setDocuments] = useState([]);
+export default function ProfilePage() {
+  const { user, logout } = useAuth();
+
+  const [profile, setProfile] = useState({ name: '', email: '', phone: '', address: '' });
+  const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
-  const router = useRouter();
+  const [isSaving, setIsSaving] = useState(false);
 
-  const fetchDocuments = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/documents', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || 'Failed to fetch documents');
-      }
-
-      const result = await response.json();
-      
-      if (result.success && Array.isArray(result.data)) {
-        setDocuments(result.data);
-      } else {
-        setDocuments([]);
-        if (!result.success) {
-          throw new Error(result.error || 'Invalid response format');
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-      setDocuments([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDelete = async (documentId, documentName) => {
-    const deleted = await confirmAndDeleteDocument(documentId, documentName);
-    if (deleted) {
-      fetchDocuments();
-      router.refresh();
-    }
-  };
-
-  const handleUploadSuccess = () => {
-    setIsUploadModalOpen(false);
-    fetchDocuments();
-    router.refresh();
-  };
+  // avatar state
+  const [avatarUrl, setAvatarUrl] = useState('');           // server URL (GridFS stream)
+  const [avatarFile, setAvatarFile] = useState(null);       // newly selected file
+  const [avatarPreview, setAvatarPreview] = useState('');   // local preview URL
+  const [removeAvatar, setRemoveAvatar] = useState(false);  // mark for deletion
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
-    fetchDocuments();
-  }, []);
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(prev => ({
+            ...prev,
+            email: data.user?.email || '',
+            name: data.user?.name || '',
+            phone: data.user?.phone || '',
+            address: data.user?.address || ''
+          }));
+          // always try to load avatar; cache-bust to ensure latest
+          setAvatarUrl(`/api/me/avatar?ts=${Date.now()}`);
+        }
+      } catch (_) {
+        // optionally toast
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (user) fetchProfile();
+  }, [user]);
 
-  const handleTitleEdit = (doc) => {
-    setEditingId(doc.id);
-    setEditTitle(doc.title || doc.filename);
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setProfile(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleTitleSave = async (doc) => {
-    if (!editTitle.trim()) {
-      console.error('Title cannot be empty');
+  const onPickAvatar = () => fileInputRef.current?.click();
+
+  const onFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!/image\/(png|jpe?g|webp)/i.test(file.type)) {
+      showToast({ type: 'error', message: 'Only PNG, JPG, JPEG, or WEBP allowed.' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast({ type: 'error', message: 'Max size 5MB.' });
       return;
     }
 
+    setAvatarFile(file);
+    setRemoveAvatar(false);
+    const url = URL.createObjectURL(file);
+    setAvatarPreview(url);
+  };
+
+  const onRemoveAvatar = () => {
+    setAvatarFile(null);
+    setAvatarPreview('');
+    setRemoveAvatar(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
     try {
-      const result = await updateDocumentTitle(doc.id, editTitle.trim());
-      if (result.success) {
-        setDocuments(docs => 
-          docs.map(d => 
-            d.id === doc.id 
-              ? { ...d, title: editTitle.trim() } 
-              : d
-          )
-        );
-        console.log('Title updated successfully');
+      // 1) Save basic profile
+      const res = await fetch('/api/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profile.name,
+          phone: profile.phone,
+          address: profile.address
+        })
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed to update profile');
+
+      // 2) Save avatar (upload or delete) if changed
+      if (avatarFile) {
+        const fd = new FormData();
+        fd.append('file', avatarFile);
+        const up = await fetch('/api/me/avatar', { method: 'POST', body: fd });
+        if (!up.ok) {
+          const err = await up.json().catch(() => ({}));
+          throw new Error(err.message || 'Failed to upload avatar');
+        }
+        setAvatarUrl(`/api/me/avatar?ts=${Date.now()}`);
+        setAvatarPreview('');
+        setAvatarFile(null);
+      } else if (removeAvatar) {
+        const del = await fetch('/api/me/avatar', { method: 'DELETE' });
+        if (!del.ok) {
+          const err = await del.json().catch(() => ({}));
+          throw new Error(err.message || 'Failed to remove avatar');
+        }
+        setAvatarUrl(''); // will fall back to initials
+        setRemoveAvatar(false);
       }
+
+      showToast({ type: 'success', message: 'Profile updated successfully' });
+      setIsEditing(false);
     } catch (error) {
-      console.error('Failed to update title:', error.message || 'Unknown error');
+      showToast({ type: 'error', message: error.message || 'Update failed' });
     } finally {
-      setEditingId(null);
-      setEditTitle('');
+      setIsSaving(false);
     }
   };
 
-  const handleKeyDown = (e, doc) => {
-    if (e.key === 'Enter') {
-      handleTitleSave(doc);
-    } else if (e.key === 'Escape') {
-      setEditingId(null);
-      setEditTitle('');
-    }
-  };
+  const handleLogout = () => logout();
 
-  const columns = [
-    { 
-      key: 'title', 
-      header: 'Title',
-      render: (doc) => (
-        <div className="flex items-center space-x-2">
-          {editingId === doc.id ? (
-            <div className="flex items-center space-x-2 w-full">
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, doc)}
-                className="flex-1 px-2 py-1 border rounded text-sm"
-                autoFocus
-              />
-              <button
-                onClick={() => handleTitleSave(doc)}
-                className="ml-2 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingId(null);
-                  setEditTitle('');
-                }}
-                className="ml-1 px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center group">
-              <span className="mr-2">{doc.title || doc.filename}</span>
-              <button
-                onClick={() => handleTitleEdit(doc)}
-                className="ml-2 text-xs text-blue-500 hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                Edit
-              </button>
-            </div>
-          )}
-        </div>
-      )
-    },
-    { 
-      key: 'type', 
-      header: 'Type',
-      render: (doc) => {
-        if (!doc.contentType) return 'Unknown';
-        // Show a more user-friendly type name
-        const typeMap = {
-          'application/pdf': 'PDF',
-          'image/': 'Image',
-          'text/': 'Text',
-          'application/msword': 'Word',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word',
-          'application/vnd.ms-excel': 'Excel',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Excel',
-          'application/vnd.ms-powerpoint': 'PowerPoint',
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'PowerPoint',
-        };
-        
-        const type = Object.entries(typeMap).find(([key]) => 
-          doc.contentType.startsWith(key)
-        )?.[1] || doc.contentType.split('/').pop().toUpperCase();
-        
-        return type;
-      }
-    },
-    { 
-      key: 'size', 
-      header: 'Size',
-      render: (doc) => {
-        if (!doc.size) return 'N/A';
-        const sizeInMB = doc.size / (1024 * 1024);
-        return `${sizeInMB.toFixed(2)} MB`;
-      }
-    },
-    { 
-      key: 'uploadedAt', 
-      header: 'Uploaded',
-      render: (doc) => formatDate(doc.uploadedAt)
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      render: (doc) => (
-        <div className="flex space-x-3">
-          <button
-            onClick={() => previewDocument(doc.id)}
-            className="text-sky-400 hover:text-sky-500 transition-colors"
-            title="Preview document"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-            </svg>
-          </button>
-          <button
-            onClick={() => downloadDocument(doc.id, doc.filename)}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
-            title="Download document"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-          <button
-            onClick={() => handleDelete(doc.id, doc.title)}
-            className="text-red-500 hover:text-red-600 transition-colors"
-            title="Delete document"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-      ),
-    },
-  ];
+  if (!user) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <p className="text-slate-200">Please log in to view your profile.</p>
+      </div>
+    );
+  }
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  const initials = (profile?.name || user?.email || 'U')
+    .split(' ')
+    .map(s => s[0]?.toUpperCase())
+    .slice(0, 2)
+    .join('');
+
+  const displayAvatar = avatarPreview || (avatarUrl || '');
 
   return (
-    <div>
-      <PageHeader
-        title="Documents"
-        actions={
-          <Button
-            onClick={() => setIsUploadModalOpen(true)}
-            variant="primary"
-          >
-            Upload Document
-          </Button>
-        }
-      />
-
-      <Card>
-        {isLoading ? (
-          <LoadingBlock />
-        ) : (
-          <Table 
-            columns={columns} 
-            data={documents} 
-            emptyState={
-              <div className="text-center py-8">
-                <p className="text-slate-400 mb-4">No documents found</p>
-                <Button
-                  onClick={() => setIsUploadModalOpen(true)}
-                  variant="primary"
-                  className="mt-2"
-                >
-                  Upload Your First Document
+    <div className="max-w-3xl mx-auto p-6">
+      <div className="bg-slate-800 rounded-2xl shadow-md p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-xl font-semibold text-slate-50">Profile</h1>
+          <div className="flex items-center gap-2">
+            {!isEditing ? (
+              <Button onClick={() => setIsEditing(true)} variant="primary" className="text-sm px-3 py-1.5 rounded-lg">
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button onClick={() => setIsEditing(false)} variant="outline" className="text-sm px-3 py-1.5 rounded-lg">
+                  Cancel
                 </Button>
-              </div>
-            }
-          />
-        )}
-      </Card>
+                <Button onClick={handleSubmit} variant="primary" isLoading={isSaving} loadingText="Saving..." className="text-sm px-3 py-1.5 rounded-lg">
+                  Save
+                </Button>
+              </>
+            )}
+            <Button onClick={handleLogout} variant="danger" className="text-sm px-3 py-1.5 rounded-lg">
+              Sign Out
+            </Button>
+          </div>
+        </div>
 
-      <Modal
-        open={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        title="Upload Document"
-      >
-        <DocumentUpload
-          onSuccess={handleUploadSuccess}
-          onCancel={() => setIsUploadModalOpen(false)}
-        />
-      </Modal>
+        {/* Avatar + basic */}
+        <div className="flex items-center gap-4 mb-8">
+          <div className="relative">
+            {displayAvatar ? (
+              <img
+                src={displayAvatar}
+                onError={() => setAvatarUrl('')}
+                alt="Avatar"
+                className="w-20 h-20 rounded-full object-cover border border-slate-700"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-slate-700 text-slate-200 flex items-center justify-center text-xl font-semibold">
+                {initials}
+              </div>
+            )}
+            {isEditing && (
+              <button
+                type="button"
+                onClick={onPickAvatar}
+                className="absolute -bottom-2 -right-2 text-xs bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded-md border border-slate-600"
+              >
+                Change
+              </button>
+            )}
+          </div>
+
+          {isEditing && (avatarFile || avatarUrl) && (
+            <button
+              type="button"
+              onClick={onRemoveAvatar}
+              className="text-xs bg-transparent text-slate-300 hover:text-white underline"
+            >
+              Remove photo
+            </button>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={onFileChange}
+          />
+        </div>
+
+        {/* Form */}
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Name</label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="name"
+                  value={profile.name}
+                  onChange={handleInputChange}
+                  className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm"
+                />
+              ) : (
+                <p className="text-white text-sm">{profile.name || 'Not set'}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Email</label>
+              <p className="text-white text-sm">{user.email}</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Phone</label>
+              {isEditing ? (
+                <input
+                  type="tel"
+                  name="phone"
+                  value={profile.phone}
+                  onChange={handleInputChange}
+                  className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm"
+                />
+              ) : (
+                <p className="text-white text-sm">{profile.phone || 'Not set'}</p>
+              )}
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-1">Address</label>
+              {isEditing ? (
+                <textarea
+                  name="address"
+                  value={profile.address}
+                  onChange={handleInputChange}
+                  rows="3"
+                  className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-white text-sm"
+                />
+              ) : (
+                <p className="text-white text-sm whitespace-pre-line">{profile.address || 'Not set'}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

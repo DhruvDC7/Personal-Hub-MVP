@@ -88,26 +88,36 @@ export async function PUT(req) {
       { $set: updateData }
     );
 
-    if (!status || !data) {
-      const error = new Error('Failed to update user profile');
+    // Note: helpers/mongo returns modifiedCount as `data`, not the updated doc.
+    // Zero modifications can legitimately occur (values unchanged). Don't treat as error.
+    // Fetch the latest user document to return.
+    const findResult = await MongoClientFindOne('users', {
+      _id: ObjectId.isValid(userId) ? new ObjectId(userId) : userId,
+    });
+
+    if (!findResult.status || !findResult.data) {
+      const error = new Error('Failed to load updated user');
       error.status = 500;
       throw error;
     }
 
+    const userDoc = findResult.data;
     // 5. Return updated user data
     return Response.json(
-      { 
-        success: true, 
-        user: { 
-          id: data._id?.toString(),
-          email: data.email,
-          name: data.name || null,
-          phone: data.phone || null,
-          address: data.address || null
-        } 
+      {
+        success: true,
+        user: {
+          id: userDoc._id?.toString(),
+          email: userDoc.email,
+          name: userDoc.name || null,
+          phone: userDoc.phone || null,
+          address: userDoc.address || null,
+        },
+        // Optionally include info about whether an update occurred
+        modified: typeof data === 'number' ? data : undefined,
       },
-      { 
-        headers: { 'Content-Type': 'application/json' } 
+      {
+        headers: { 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
