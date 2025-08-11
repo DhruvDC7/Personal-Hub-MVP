@@ -6,7 +6,7 @@ import { api, uploadFile } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
 import { Button } from '@/components/ui/Button';
 
-export default function DocumentUpload({ onSuccess, onCancel }) {
+export default function DocumentUpload({ onSuccess, onCancel, documentId }) {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -39,24 +39,33 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
     setIsUploading(true);
 
     try {
-      // Step 1: Get presigned URL from our API
-      const { url, documentId } = await api('/api/documents/presign', {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/documents/upload', {
         method: 'POST',
-        body: {
-          filename: file.name,
-          contentType: file.type,
-          title,
+        headers: {
+          'x-filename': file.name,
+          'x-title': title,
+          ...(documentId && { 'x-document-id': documentId }),
         },
+        body: file,
       });
 
-      await uploadFile(url, file);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || 'Failed to upload document');
+      }
+
+      const result = await response.json();
 
       showToast({
         type: 'success',
-        message: 'Document uploaded successfully',
+        message: documentId ? 'Document updated successfully' : 'Document uploaded successfully',
       });
+      
       router.refresh();
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(result);
     } catch (error) {
       showToast({
         type: 'error',
@@ -140,7 +149,7 @@ export default function DocumentUpload({ onSuccess, onCancel }) {
           type="submit"
           isLoading={isUploading}
         >
-          {isUploading ? 'Uploading...' : 'Upload Document'}
+          {isUploading ? (documentId ? 'Updating...' : 'Uploading...') : (documentId ? 'Update Document' : 'Upload Document')}
         </Button>
       </div>
     </form>

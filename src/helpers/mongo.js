@@ -1,5 +1,5 @@
+import { ObjectId, GridFSBucket } from 'mongodb';
 import { clientPromise } from "../lib/mongo";
-import { ObjectId } from "mongodb";
 
 const DatabaseName = process.env.MONGODB_DB;
 
@@ -355,3 +355,37 @@ export const MongoClientDocumentCount = async (collection, query = {}) => {
         };
     }
 };
+
+
+
+/**
+ * Returns both the file document and a GridFSBucket instance for a given bucketName + fileId
+ */
+export const GridFSFindFileByIdWithBucket = async (bucketName = 'documents', id) => {
+    try {
+      const client = await clientPromise;
+      const db = client.db(DatabaseName);
+      const bucket = new GridFSBucket(db, { bucketName, chunkSizeBytes: 255 * 1024 });
+  
+      const _id = toObjectId(id);
+      const fileDoc = await db.collection(`${bucketName}.files`).findOne({ _id });
+  
+      return {
+        status: !!fileDoc,
+        mode: 'find',
+        bucket,              // Ready to use for delete/upload
+        data: fileDoc || {},
+        id: fileDoc?._id || '',
+        message: fileDoc ? 'File found.' : 'File not found.'
+      };
+    } catch (e) {
+      return {
+        status: false,
+        mode: 'error',
+        data: {},
+        id: '',
+        bucket: null,
+        message: `Internal Server Error: ${e.message}`
+      };
+    }
+  };

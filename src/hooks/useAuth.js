@@ -31,16 +31,12 @@ export function AuthProvider({ children }) {
   const refreshToken = useCallback(async () => {
     // If refresh is already in progress, return the existing promise
     if (refreshInProgress) {
-      console.log('Token refresh already in progress, returning existing promise');
       return refreshPromise;
     }
 
     refreshInProgress = true;
     refreshPromise = new Promise(async (resolve, reject) => {
       try {
-        console.log('Attempting to refresh token...');
-        
-        // Use relative path since we're using rewrites in next.config.js
         const response = await fetch('/api/auth/refresh', {
           method: 'POST',
           credentials: 'include',

@@ -1,172 +1,146 @@
-import crypto from "crypto";
-import { ObjectId } from "mongodb";
-import { presignPut, deleteFromS3 } from "@/lib/s3";
-import logs from "@/helpers/logs";
-import { errorObject } from "@/helpers/errorObject";
-import {
-  MongoClientFind,
-  MongoClientInsertOne,
-  MongoClientFindOne,
-  MongoClientDeleteOne,
-} from "@/helpers/mongo";
-import { requireAuth } from "@/middleware/auth";
+// app/api/documents/route.js
+export const runtime = 'nodejs';
 
-const toObjectId = (id) => id;
+import { ObjectId } from 'mongodb';
+import { getGridFSBucket } from '@/lib/mongo';
 
-const bucket = process.env.AWS_S3_BUCKET;
-const region = process.env.AWS_REGION;
+function isAuthorized(_req) { return true; }
 
-// GET /api/documents -> list documents for demo-user (latest first)
+function json(data, init = {}) {
+  const headers = new Headers(init.headers || {});
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json; charset=utf-8');
+  }
+  return new Response(JSON.stringify(data), { ...init, headers });
+}
+
+async function findFile(bucket, _id) {
+  const files = await bucket.find({ _id }).toArray();
+  return files[0] || null;
+}
+
+// GET /api/documents -> list all documents
+// GET /api/documents?id=<id> -> stream file bytes
 export async function GET(req) {
-  const startTime = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 9);
-  
-  try {
-    const { userId } = requireAuth(req);
-    const { status, data, message } = await MongoClientFind(
-      "documents",
-      { user_id: userId },
-      { sort: { created_on: -1 } }
-    );
-
-    if (!status) {
-      return Response.json({ status: false, message }, { status: 400 });
-    }
-
-    const items = Array.isArray(data) ? data : [];
-    
-    if (items.length === 0) {
-      return Response.json(
-        { status: false, message: 'No documents found' },
-        { status: 404 }
-      );
-    }
-
-    const mapped = items.map((d) => ({
-      id: d._id?.toString() || d.id,
-      title: d.title,
-      tags: d.tags || [],
-      contentType: d.content_type || null,
-      size: d.storage?.size || 0,
-      uploadedAt: d.created_on,
-      url: d.storage?.bucket && d.storage?.key
-        ? `https://${d.storage.bucket}.s3.${region}.amazonaws.com/${d.storage.key}`
-        : null,
-    }));
-
-    return Response.json({ status: true, data: mapped });
-  } catch (e) {
-    if (e.status === 401) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-    }
-    await logs(req, `GET /documents failed: ${e.message}`, 500);
-    return new Response(errorObject("Failed to fetch documents", 500), { status: 500 });
+  if (!isAuthorized(req)) {
+    return json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
-}
 
-// POST /api/documents -> create metadata + presigned URL
-export async function POST(req) {
-  const startTime = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 9);
-  
   try {
-    const { filename, contentType, title = "", tags = [] } = await req
-      .json()
-      .catch(() => ({}));
-
-    if (!filename || !contentType) {
-      return new Response(errorObject("filename and contentType are required", 400), {
-        status: 400,
-      });
-    }
-
-    const { userId } = requireAuth(req);
-    const ext = filename.split(".").pop();
-    const key = `u/${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-    const uploadUrl = await presignPut(bucket, key, contentType);
-
-    const doc = {
-      user_id: userId,
-      title: title || filename,
-      tags,
-      content_type: contentType,
-      storage: { bucket, key, size: 0 },
-      status: "pending",
-      created_on: new Date(),
-    };
-    const { status, id, message } = await MongoClientInsertOne("documents", doc);
-    if (!status) throw new Error(message);
-    return Response.json({
-      status: true,
-      data: { id, uploadUrl, bucket, key, title: doc.title, tags },
-    });
-  } catch (e) {
-    if (e.status === 401) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-    }
-    const errorMsg = e?.message || "POST /documents failed";
-    await logs(req, errorMsg, 500);
-    return new Response(errorObject("Internal error", 500), { status: 500 });
-  }
-}
-
-// DELETE /api/documents?id=<id> OR body { id }
-// Deletes from S3 and DB
-export async function DELETE(req) {
-  const startTime = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 9);
-  
-  try {
-    const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
-    const id = body?.id || searchParams.get("id");
-    if (!id) {
-      return new Response(errorObject("Missing ID", 400), { status: 400 });
-    }
-
-    try {
-      new ObjectId(String(id));
-    } catch {
-      return new Response(errorObject("invalid id", 400), { status: 400 });
-    }
-
-    const { userId } = requireAuth(req);
-
-    const { status, data, message } = await MongoClientFindOne(
-      "documents",
-      { _id: toObjectId(id), user_id: userId }
-    );
-    if (!status) throw new Error(message);
-    const doc = data;
-    if (!doc) {
-      return new Response(errorObject("Document not found", 404), { status: 404 });
-    }
-
-    if (doc.storage?.bucket && doc.storage?.key) {
-      try {
-        await deleteFromS3(doc.storage.bucket, doc.storage.key);
-      } catch (e) {
-        await logs(
-          req,
-          `S3 delete failed: ${e?.message || "error"}`,
-          500,
-          { id, storage: doc.storage },
-        );
+    const id = searchParams.get('id');
+    
+    // If ID is provided, return the specific file
+    if (id) {
+      let _id;
+      try { 
+        _id = new ObjectId(id); 
+      } catch { 
+        return json({ success: false, error: 'Invalid id format' }, { status: 400 }); 
       }
+
+      const bucket = await getGridFSBucket();
+      const file = await findFile(bucket, _id);
+      if (!file) {
+        return json({ success: false, error: 'Not found' }, { status: 404 });
+      }
+
+      const stream = bucket.openDownloadStream(_id);
+      const res = new Response(stream, { status: 200 });
+      res.headers.set('Content-Type', file.contentType || 'application/octet-stream');
+      res.headers.set('Content-Length', String(file.length ?? 0));
+      res.headers.set('Content-Disposition', `inline; filename="${file.filename}"`);
+      return res;
+    }
+    
+    // If no ID, return list of all documents
+    const bucket = await getGridFSBucket();
+    const files = await bucket.find({}).toArray();
+    
+    // Transform files to include necessary metadata
+    const documents = files.map(file => ({
+      id: file._id.toString(),
+      filename: file.filename,
+      title: file.metadata?.title || file.filename,
+      contentType: file.contentType,
+      size: file.length,
+      uploadedAt: file.uploadDate,
+      metadata: file.metadata || {}
+    }));
+    
+    return json({ 
+      success: true, 
+      data: documents 
+    });
+    
+  } catch (error) {
+    console.error('Error in GET /api/documents:', error);
+    return json({ 
+      success: false, 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
+  }
+}
+
+// HEAD /api/documents?id=<id> -> headers only
+export async function HEAD(req) {
+  if (!isAuthorized(req)) {
+    return new Response(null, { status: 401 });
+  }
+
+  try {
+    const id = new URL(req.url).searchParams.get('id');
+    if (!id) {
+      return new Response(null, { status: 400 });
     }
 
-    const { status: delStatus, message: delMsg } = await MongoClientDeleteOne(
-      "documents",
-      { _id: toObjectId(id), user_id: userId }
-    );
-    if (!delStatus) throw new Error(delMsg);
-    return Response.json({ status: true, data: { id } });
-  } catch (e) {
-    if (e.status === 401) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    let _id;
+    try { _id = new ObjectId(id); }
+    catch { return new Response(null, { status: 400 }); }
+
+    const bucket = await getGridFSBucket();
+    const file = await findFile(bucket, _id);
+    if (!file) {
+      return new Response(null, { status: 404 });
     }
-    const errorMsg = e?.message || "DELETE /documents failed";
-    await logs(req, errorMsg, 500);
-    return new Response(errorObject("Internal error", 500), { status: 500 });
+
+    const headers = new Headers();
+    headers.set('Content-Length', String(file.length ?? 0));
+    headers.set('Content-Type', file.contentType || 'application/octet-stream');
+    headers.set('X-GridFS-Filename', file.filename);
+    headers.set('X-GridFS-UploadDate', file.uploadDate?.toISOString?.() || '');
+    return new Response(null, { status: 200, headers });
+  } catch {
+    return new Response(null, { status: 500 });
+  }
+}
+
+// DELETE /api/documents?id=<id>
+export async function DELETE(req) {
+  if (!isAuthorized(req)) {
+    return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const id = new URL(req.url).searchParams.get('id');
+    if (!id) {
+      return json({ success: false, error: 'Missing id parameter' }, { status: 400 });
+    }
+
+    let _id;
+    try { _id = new ObjectId(id); }
+    catch { return json({ success: false, error: 'Invalid id format' }, { status: 400 }); }
+
+    const bucket = await getGridFSBucket();
+    const file = await findFile(bucket, _id);
+    if (!file) {
+      return json({ success: false, error: 'Not found' }, { status: 404 });
+    }
+
+    await bucket.delete(_id);
+    return json({ success: true, data: { id } }, { status: 200 });
+  } catch {
+    return json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
