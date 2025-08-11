@@ -107,7 +107,7 @@ function Dashboard() {
             <h1 className="text-2xl font-bold text-white">{user?.name || 'Welcome back'}</h1>
           </div>
           <div className="flex items-center gap-2">
-            <AddTransactionButton onTransactionAdded={loadData} />
+            <AddTransactionButton onTransactionAdded={loadData} className="mt-4 ml-2.5" />
           </div>
         </div>
       </div>
@@ -138,7 +138,7 @@ function Dashboard() {
 
         <Card>
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-slate-50">This Period</h3>
+            <h3 className="text-lg font-medium text-slate-50">Breakdown</h3>
           </div>
           <div className="mt-4 flex items-center gap-6">
             {/* Donut */}

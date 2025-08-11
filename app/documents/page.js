@@ -37,6 +37,8 @@ export default function DocumentsPage() {
     setEditingTitle(doc.title || doc.filename);
   };
 
+  // no-op: inner scroll reset removed
+
   const onSaveTitle = async () => {
     try {
       await updateDocumentTitle(editingId, editingTitle);
@@ -64,7 +66,7 @@ export default function DocumentsPage() {
   });
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6 flex-1 overflow-hidden flex flex-col">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-slate-50">Documents</h1>
         <p className="text-slate-400 text-sm">Upload, view and manage your documents</p>
@@ -101,8 +103,8 @@ export default function DocumentsPage() {
       )}
 
       {/* List */}
-      <div className="bg-slate-800 rounded-2xl p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+      <div className="flex-1 bg-slate-800 rounded-2xl p-6 overflow-y-auto">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sticky top-0 z-10 -mx-6 px-6 pt-0 pb-4 bg-slate-800 border-b border-slate-700">
           <h2 className="text-lg font-medium text-slate-50">All Documents</h2>
           <div className="flex w-full md:w-auto items-center gap-2 flex-wrap sm:flex-nowrap">
             <input

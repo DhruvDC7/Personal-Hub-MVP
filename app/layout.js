@@ -39,7 +39,9 @@ export default function RootLayout({ children }) {
       >
         <AuthProvider>
           <Navbar />
-          <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8">
+          <main
+            className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 pt-20 min-h-[calc(100vh-4rem)] overflow-hidden flex flex-col"
+          >
             {children}
           </main>
           <Footer />
