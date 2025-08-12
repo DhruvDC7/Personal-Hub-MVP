@@ -51,16 +51,51 @@ export async function POST(req) {
   
   try {
     const { userId } = requireAuth(req);
+    // Capture requested initial balance, but store account with balance 0 first
+    const requestedInitialBalance = typeof value.balance === 'number' ? value.balance : 0;
+    const now = new Date();
     const doc = {
       ...value,
+      balance: 0,
       user_id: userId,
-      created_on: new Date(),
-      updated_on: new Date(),
+      created_on: now,
+      updated_on: now,
     };
     const { status, id, message } = await MongoClientInsertOne("accounts", doc);
     if (!status) throw new Error(message);
+
+    // If there is an initial balance, create an Opening Balance transaction
+    if (requestedInitialBalance !== 0) {
+      const openingAmount = Math.abs(requestedInitialBalance);
+      const openingType = requestedInitialBalance > 0 ? 'income' : 'expense';
+      const txDoc = {
+        user_id: userId,
+        type: openingType,
+        account_id: id,
+        amount: openingAmount,
+        currency: value.currency || 'INR',
+        category: 'Opening Balance',
+        note: 'Initial balance at account creation',
+        tags: ['opening'],
+        attachment_ids: [],
+        created_on: now,
+        updated_on: now,
+        happened_on: now,
+      };
+      const txRes = await MongoClientInsertOne('transactions', txDoc);
+      if (!txRes.status) throw new Error(txRes.message || 'Failed to create opening balance transaction');
+
+      // Apply balance delta to the account, mirroring transaction semantics
+      const delta = openingType === 'income' ? openingAmount : -openingAmount;
+      await MongoClientUpdateOne(
+        'accounts',
+        { _id: id, user_id: userId },
+        { $inc: { balance: delta }, $set: { updated_on: now } }
+      );
+    }
+
     return Response.json(
-      { status: true, data: { id, ...doc } },
+      { status: true, data: { id, ...doc, balance: requestedInitialBalance } },
       { status: 201 }
     );
   } catch (e) {
