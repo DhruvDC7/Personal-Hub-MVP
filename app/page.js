@@ -14,6 +14,7 @@ function Dashboard() {
   const [netWorth, setNetWorth] = useState({ networth: 0, currency: 'INR' });
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [accountCount, setAccountCount] = useState(0);
+  const [accounts, setAccounts] = useState([]);
   const [documentCount, setDocumentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
@@ -42,6 +43,7 @@ function Dashboard() {
       }
       const accountsData = await accountsResponse.json();
       if (accountsData.status) {
+        setAccounts(accountsData.data);
         setAccountCount(accountsData.data.length);
         // Compute breakdown: bank, loan, investment
         const loanTypes = new Set(['loan', 'liability', 'credit', 'credit card', 'mortgage']);
@@ -116,12 +118,177 @@ function Dashboard() {
       const res = await fetch('/api/reports/generate', { method: 'POST' });
       if (!res.ok) throw new Error(`Failed to generate report: ${res.status}`);
       const data = await res.json();
-      // Trigger a JSON download for now; will be PDF later
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      // Build a styled HTML report and download it
+      const reportDate = new Date().toLocaleString();
+      const fmt = (n) => {
+        try {
+          return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(n || 0));
+        } catch {
+          return String(n);
+        }
+      };
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Financial Report</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --card: #0f172a;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --success: #10b981; /* investment */
+    --danger: #ef4444; /* loan */
+    --bank: #f59e0b;   /* bank (yellow) */
+    --border: #1f2937;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--text); }
+  .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+  .header { background: linear-gradient(135deg, #facc15, #f59e0b); color: #111827; padding: 24px; border-radius: 16px; }
+  .header h1 { margin: 0 0 6px; font-size: 24px; }
+  .meta { font-size: 12px; color: #111827; opacity: 0.8; }
+  .user { margin-top: 6px; font-size: 12px; color: #111827; display: grid; gap: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .card h3 { margin: 0 0 8px; font-size: 14px; color: var(--muted); font-weight: 600; }
+  .stat { font-size: 22px; font-weight: 700; }
+  .row { display: flex; gap: 16px; align-items: center; }
+  .pill { display:inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 12px; }
+  .pill.loan { background: rgba(239,68,68,.15); color: var(--danger); }
+  .pill.bank { background: rgba(245,158,11,.15); color: var(--bank); }
+  .pill.inv { background: rgba(16,185,129,.15); color: var(--success); }
+  .table-wrap { width: 100%; overflow-x: auto; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; min-width: 560px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { color: var(--muted); font-weight: 600; background: #0b152a; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .legend { display:flex; gap: 12px; align-items: center; margin: 8px 0 0; }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .loan { background: var(--danger); }
+  .bank { background: var(--bank); }
+  .inv { background: var(--success); }
+  .footer { margin-top: 24px; color: var(--muted); font-size: 12px; text-align: center; }
+
+  /* Responsive styles */
+  @media (max-width: 640px) {
+    .container { padding: 14px; }
+    .header { padding: 16px; border-radius: 12px; }
+    .header h1 { font-size: 18px; }
+    .meta, .user { font-size: 11px; }
+    .grid { grid-template-columns: 1fr; gap: 12px; }
+    .card { padding: 12px; }
+    .stat { font-size: 18px; }
+    th, td { padding: 8px 10px; font-size: 12px; }
+  }
+  @media (min-width: 641px) and (max-width: 1024px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Financial Report</h1>
+      <div class="meta">Generated on ${reportDate}</div>
+      <div class="user">
+        ${(() => { try { return (function(u){
+          if (!u) return '';
+          const lines = [];
+          if (u.name) lines.push(`Name: ${u.name}`);
+          if (u.email) lines.push(`Email: ${u.email}`);
+          if (u.phone) lines.push(`Phone: ${u.phone}`);
+          return lines.length ? lines.join(' · ') : '';
+        })((data?.summary?.user) ?? (data?.data?.summary?.user)); } catch { return ''; } })()}
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Net Worth</h3>
+        <div class="stat">${fmt(netWorth.networth ?? 0)}</div>
+      </div>
+      <div class="card">
+        <h3>Bank</h3>
+        <div class="stat" style="color: var(--bank)">${fmt(accountBreakdown.bank)}</div>
+        <div class="legend"><span class="dot bank"></span><span class="muted">Bank holdings</span></div>
+      </div>
+      <div class="card">
+        <h3>Breakdown</h3>
+        <div class="row">
+          <span class="pill loan">Loan: ${fmt(accountBreakdown.loan)}</span>
+          <span class="pill bank">Bank: ${fmt(accountBreakdown.bank)}</span>
+          <span class="pill inv">Investment: ${fmt(accountBreakdown.investment)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3>Accounts</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(Array.isArray(data?.accounts) ? data.accounts : (data?.data?.accounts || [])).map(a => `
+              <tr>
+                <td>${a.name ?? ''}</td>
+                <td>${a.type ?? ''}</td>
+                <td>${fmt(a.balance)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="muted">If any field is empty,please contact support.</div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3>Recent Transactions</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Note</th>
+              <th>Type</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(Array.isArray(data?.transactions) ? data.transactions : (data?.data?.transactions || [])).slice(0, 25).map(t => `
+              <tr>
+                <td>${t.created_on ? new Date(t.created_on).toLocaleDateString() : ''}</td>
+                <td>${t.category ?? ''}</td>
+                <td>${t.note ?? ''}</td>
+                <td>${t.type ?? ''}</td>
+                <td>${fmt(t.amount)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">Confidential · Personal Finance Report</div>
+  </div>
+</body>
+</html>`;
+
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'financial-report.json';
+      a.download = 'financial-report.html';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -202,7 +369,7 @@ function Dashboard() {
               <div
                 className="h-full w-full rounded-full"
                 style={{
-                  background: `conic-gradient(#ef4444 0% ${loanPct}%, #3b82f6 ${loanPct}% ${loanPct + bankPct}%, #10b981 ${loanPct + bankPct}% 100%)`,
+                  background: `conic-gradient(#ef4444 0% ${loanPct}%, #f59e0b ${loanPct}% ${loanPct + bankPct}%, #10b981 ${loanPct + bankPct}% 100%)`,
                 }}
               />
               <div className="absolute inset-3 rounded-full bg-[var(--card)]" />
@@ -227,7 +394,7 @@ function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="h-3 w-3 rounded-full bg-blue-500" />
+                <span className="h-3 w-3 rounded-full bg-amber-500" />
                 <div>
                   <p className="text-sm text-slate-400">Bank</p>
                   <p className="font-medium">{formatINR(accountBreakdown.bank)}</p>
@@ -253,7 +420,7 @@ function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Link href="/accounts" className="group">
             <div className="rounded-xl bg-slate-800/60 hover:bg-slate-800 transition p-4 text-center">
-              <div className="mx-auto h-8 w-8 rounded-lg bg-blue-600/20 text-blue-300 grid place-items-center">🏦</div>
+              <div className="mx-auto h-8 w-8 rounded-lg bg-yellow-600/20 text-yellow-300 grid place-items-center">🏦</div>
               <div className="mt-2 text-sm">Banks</div>
             </div>
           </Link>
@@ -291,20 +458,36 @@ function Dashboard() {
             <div className="p-6 text-sm text-slate-400">No recent transactions. Add your first transaction!</div>
           ) : (
             <ul className="divide-y divide-slate-700/60">
-              {recentTransactions.slice(0, 7).map((txn) => (
-                <li key={txn.id || txn._id || txn.created_on} className="flex items-center gap-3 p-4">
-                  <div className={`h-10 w-10 rounded-full grid place-items-center text-sm font-semibold ${txn.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
-                    {txn.category?.[0]?.toUpperCase() || '₹'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate font-medium">{txn.note || txn.category || 'Transaction'}</p>
-                    <p className="text-xs text-slate-400">{new Date(txn.created_on).toLocaleDateString()}</p>
-                  </div>
-                  <div className={`text-right shrink-0 ${txn.type === 'income' ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {txn.type === 'income' ? '+' : '-'}{formatINR(Math.abs(txn.amount))}
-                  </div>
-                </li>
-              ))}
+              {recentTransactions.slice(0, 7).map((txn) => {
+                const idOf = (x) => (typeof x === 'string' ? x : (x?._id || x?.$oid || x?.oid || x));
+                const getAcc = (id) => accounts.find(a => (idOf(a._id) === idOf(id)));
+                let accountLine = '';
+                if (String(txn.type || '').toLowerCase() === 'transfer') {
+                  const fromAcc = getAcc(txn.from_account_id);
+                  const toAcc = getAcc(txn.to_account_id);
+                  accountLine = `${fromAcc?.name || '—'} → ${toAcc?.name || '—'}`;
+                } else {
+                  const acc = getAcc(txn.account_id);
+                  accountLine = acc?.name || '';
+                }
+                return (
+                  <li key={txn.id || txn._id || txn.created_on} className="flex items-center gap-3 p-4">
+                    <div className={`h-10 w-10 rounded-full grid place-items-center text-sm font-semibold ${txn.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                      {txn.category?.[0]?.toUpperCase() || '₹'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate font-medium">{txn.note || txn.category || 'Transaction'}</p>
+                      <p className="text-xs text-slate-400">{new Date(txn.created_on).toLocaleDateString()}</p>
+                      {accountLine ? (
+                        <p className="text-xs text-slate-400 mt-0.5">{accountLine}</p>
+                      ) : null}
+                    </div>
+                    <div className={`text-right shrink-0 ${txn.type === 'income' ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {txn.type === 'income' ? '+' : '-'}{formatINR(Math.abs(txn.amount))}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>

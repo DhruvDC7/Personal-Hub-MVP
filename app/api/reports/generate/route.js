@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { aiJSONPrompt } from '@/lib/ai';
+import { MongoClientFind } from '@/helpers/mongo';
 
 function monthKey(d) {
   const dt = new Date(d);
@@ -12,25 +13,51 @@ export async function POST(req) {
     // Require auth and get user context
     const { userId } = requireAuth(req);
 
-    // Build origin and forward cookies for server-to-server calls
-    const origin = new URL(req.url).origin;
-    const cookie = req.headers.get('cookie') || '';
-    const common = { cache: 'no-store', headers: { cookie } };
-
-    // Fetch accounts and transactions (user-scoped thanks to forwarded cookies)
-    const [accountsRes, txRes] = await Promise.all([
-      fetch(`${origin}/api/accounts`, common),
-      fetch(`${origin}/api/transactions?limit=1000&sort=created_on`, common),
+    // Query MongoDB directly for accounts and transactions
+    const [accRes, txRes, userRes] = await Promise.all([
+      MongoClientFind('accounts', { user_id: userId }, { sort: { created_on: -1 } }),
+      MongoClientFind('transactions', { user_id: userId }, { sort: { created_on: -1 }, limit: 1000 }),
+      MongoClientFind('users', { _id: userId }, { sort: { created_on: -1 } }),
     ]);
 
-    if (!accountsRes.ok) throw new Error(`accounts fetch failed: ${accountsRes.status}`);
-    if (!txRes.ok) throw new Error(`transactions fetch failed: ${txRes.status}`);
+    // Only treat 'mode: error' as failures; empty results are fine
+    if (accRes?.mode === 'error') throw new Error(accRes.message || 'accounts query failed');
+    if (txRes?.mode === 'error') throw new Error(txRes.message || 'transactions query failed');
+    if (userRes?.mode === 'error') throw new Error(userRes.message || 'user query failed');
 
-    const accountsJson = await accountsRes.json();
-    const txJson = await txRes.json();
+    const accounts = Array.isArray(accRes?.data) ? accRes.data : [];
+    const transactions = (Array.isArray(txRes?.data) ? txRes.data : []).filter(t => t && t.amount != null && t.created_on);
+    const user = userRes?.data?.[0];
 
-    const accounts = accountsJson?.data || [];
-    const transactions = (txJson?.data || []).filter(t => t && t.amount != null && t.created_on);
+    // Build an index to resolve account names quickly
+    const idOf = (x) => (typeof x === 'string' ? x : (x?._id || x?.$oid || x?.oid || x));
+    const accById = new Map(accounts.map(a => [idOf(a._id), a]));
+
+    // Enrich transactions with resolved account names/ids (for report display)
+    const enrichedTransactions = transactions.map(t => {
+      const base = { ...t };
+      const type = String(t.type || '').toLowerCase();
+      if (type === 'transfer') {
+        const fromId = idOf(t.from_account_id);
+        const toId = idOf(t.to_account_id);
+        const fromAcc = accById.get(fromId);
+        const toAcc = accById.get(toId);
+        return {
+          ...base,
+          from_account_id: fromId,
+          to_account_id: toId,
+          from_account_name: fromAcc?.name || '',
+          to_account_name: toAcc?.name || '',
+        };
+      }
+      const accId = idOf(t.account_id);
+      const acc = accById.get(accId);
+      return {
+        ...base,
+        account_id: accId,
+        account_name: acc?.name || '',
+      };
+    });
 
     // Aggregate balances (bank/loan/investment)
     const loanTypes = new Set(['loan', 'liability', 'credit', 'credit card', 'mortgage']);
@@ -94,6 +121,12 @@ export async function POST(req) {
 
     const summary = {
       userId,
+      user: user ? {
+        id: user.id || user._id || userId,
+        name: user.name || user.fullName || user.username || undefined,
+        email: user.email || undefined,
+        phone: user.phone || user.phoneNumber || undefined,
+      } : { id: userId },
       totals,
       accountsCount: accounts.length,
       transactionsAnalyzed: transactions.length,
@@ -142,6 +175,8 @@ UserContext: ${JSON.stringify({ userId })}
         spendByCategory,
         monthlyTrends: monthly,
       },
+      accounts,
+      transactions: enrichedTransactions,
       // TODO: Generate a PDF using pdfkit/@react-pdf/renderer/puppeteer
       // TODO: Email PDF to the customer via your email provider
     };
