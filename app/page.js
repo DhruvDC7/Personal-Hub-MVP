@@ -18,7 +18,7 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   // Breakdown by account balances
-  const [accountBreakdown, setAccountBreakdown] = useState({ assets: 0, liabilities: 0 });
+  const [accountBreakdown, setAccountBreakdown] = useState({ bank: 0, loan: 0, investment: 0 });
   
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -42,20 +42,42 @@ function Dashboard() {
       const accountsData = await accountsResponse.json();
       if (accountsData.status) {
         setAccountCount(accountsData.data.length);
-        // Compute breakdown from accounts: assets vs liabilities
-        const subtractTypes = new Set(['loan', 'liability', 'credit']);
-        let assets = 0;
-        let liabilities = 0;
+        // Compute breakdown: bank, loan, investment
+        const loanTypes = new Set(['loan', 'liability', 'credit', 'credit card', 'mortgage']);
+        const bankTypes = new Set(['bank', 'cash', 'savings', 'current', 'checking']);
+        const investmentTypes = new Set([
+          'investment',
+          'investments',
+          'mutual fund',
+          'mutual funds',
+          'equity',
+          'stock',
+          'stocks',
+          'sip',
+          'fd',
+          'rd',
+          'bond',
+          'bonds',
+          'crypto',
+        ]);
+        let bank = 0;
+        let loan = 0;
+        let investment = 0;
         for (const a of accountsData.data) {
           const balance = Number(a?.balance) || 0;
-          const type = String(a?.type || 'asset').toLowerCase();
-          if (subtractTypes.has(type)) {
-            liabilities += Math.abs(balance);
+          const type = String(a?.type || '').trim().toLowerCase();
+          if (loanTypes.has(type)) {
+            loan += Math.abs(balance);
+          } else if (investmentTypes.has(type)) {
+            investment += balance;
+          } else if (bankTypes.has(type) || type === '' || type === 'asset') {
+            bank += balance;
           } else {
-            assets += Math.max(balance, 0);
+            // Fallback: treat unknown as bank-like asset
+            bank += balance;
           }
         }
-        setAccountBreakdown({ assets, liabilities });
+        setAccountBreakdown({ bank, loan, investment });
       }
 
       // Fetch recent transactions (for list only)
@@ -98,9 +120,11 @@ function Dashboard() {
       </div>
     );
   }
-  const totalAmount = accountBreakdown.assets + accountBreakdown.liabilities;
-  const assetsPct = totalAmount ? Math.round((accountBreakdown.assets / totalAmount) * 100) : 0;
-  const liabilitiesPct = 100 - assetsPct;
+  const totalAmount = accountBreakdown.bank + accountBreakdown.loan + accountBreakdown.investment;
+  const bankPct = totalAmount ? Math.round((accountBreakdown.bank / totalAmount) * 100) : 0;
+  const loanPct = totalAmount ? Math.round((accountBreakdown.loan / totalAmount) * 100) : 0;
+  // Ensure percentages sum to ~100 by assigning remainder to investment
+  const investmentPct = Math.max(0, 100 - bankPct - loanPct);
 
   return (
     <div className="space-y-6">
@@ -147,11 +171,14 @@ function Dashboard() {
           </div>
           <div className="mt-4 flex items-center gap-6">
             {/* Donut */}
-            <div className="relative h-28 w-28 shrink-0" aria-label={`Assets ${assetsPct}% Liabilities ${liabilitiesPct}%`}>
+            <div
+              className="relative h-28 w-28 shrink-0"
+              aria-label={`Loan ${loanPct}% Bank ${bankPct}% Investment ${investmentPct}%`}
+            >
               <div
                 className="h-full w-full rounded-full"
                 style={{
-                  background: `conic-gradient(#10b981 0% ${assetsPct}%, #ef4444 ${assetsPct}% 100%)`,
+                  background: `conic-gradient(#ef4444 0% ${loanPct}%, #3b82f6 ${loanPct}% ${loanPct + bankPct}%, #10b981 ${loanPct + bankPct}% 100%)`,
                 }}
               />
               <div className="absolute inset-3 rounded-full bg-[var(--card)]" />
@@ -159,17 +186,24 @@ function Dashboard() {
             {/* Legend */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <span className="h-3 w-3 rounded-full bg-emerald-500" />
+                <span className="h-3 w-3 rounded-full bg-red-500" />
                 <div>
-                  <p className="text-sm text-slate-400">Assets</p>
-                  <p className="font-medium">{formatINR(accountBreakdown.assets)}</p>
+                  <p className="text-sm text-slate-400">Loan</p>
+                  <p className="font-medium">{formatINR(accountBreakdown.loan)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="h-3 w-3 rounded-full bg-red-500" />
+                <span className="h-3 w-3 rounded-full bg-blue-500" />
                 <div>
-                  <p className="text-sm text-slate-400">Liabilities</p>
-                  <p className="font-medium">{formatINR(accountBreakdown.liabilities)}</p>
+                  <p className="text-sm text-slate-400">Bank</p>
+                  <p className="font-medium">{formatINR(accountBreakdown.bank)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="h-3 w-3 rounded-full bg-emerald-500" />
+                <div>
+                  <p className="text-sm text-slate-400">Investment</p>
+                  <p className="font-medium">{formatINR(accountBreakdown.investment)}</p>
                 </div>
               </div>
             </div>
