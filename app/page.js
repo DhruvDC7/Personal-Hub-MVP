@@ -122,7 +122,7 @@ function Dashboard() {
         <Card>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-slate-400">Available Balance</p>
+              <p className="text-sm text-slate-400">Net Worth</p>
               <p className={`mt-2 text-4xl font-semibold ${netWorth.networth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                 {formatINR(netWorth.networth)}
               </p>

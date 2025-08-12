@@ -58,11 +58,8 @@ export default function DocumentsPage() {
   const filteredDocs = documents.filter((d) => {
     if (!query) return true;
     const q = normalized(query);
-    return (
-      normalized(d.title || '').includes(q) ||
-      normalized(d.filename || '').includes(q) ||
-      normalized(d.contentType || '').includes(q)
-    );
+    const metaTitle = normalized(d?.metadata?.title || '');
+    return metaTitle.includes(q);
   });
 
   return (
@@ -70,6 +67,23 @@ export default function DocumentsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-slate-50">Documents</h1>
         <p className="text-slate-400 text-sm">Upload, view and manage your documents</p>
+      </div>
+
+      {/* Fixed Controls (Search + Upload) */}
+      <div className="mb-4 bg-slate-800 border border-slate-700 rounded-2xl p-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <h2 className="text-lg font-medium text-slate-50">All Documents</h2>
+          <div className="flex w-full md:w-auto items-center gap-2 flex-wrap sm:flex-nowrap">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search documents..."
+              className="min-w-0 basis-full sm:basis-auto flex-1 md:w-72 bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-3 py-2 placeholder-slate-400"
+            />
+            <Button onClick={() => setQuery((q) => q.trim())} variant="outline" className="text-sm shrink-0 w-full sm:w-auto">Search</Button>
+            <Button onClick={() => setIsUploading(true)} variant="primary" className="text-sm shrink-0 w-full sm:w-auto">Upload</Button>
+          </div>
+        </div>
       </div>
 
       {/* Upload Modal */}
@@ -102,21 +116,8 @@ export default function DocumentsPage() {
         </div>
       )}
 
-      {/* List */}
+      {/* List (Scrollable) */}
       <div className="flex-1 bg-slate-800 rounded-2xl p-6 overflow-y-auto">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sticky top-0 z-10 -mx-6 px-6 pt-0 pb-4 bg-slate-800 border-b border-slate-700">
-          <h2 className="text-lg font-medium text-slate-50">All Documents</h2>
-          <div className="flex w-full md:w-auto items-center gap-2 flex-wrap sm:flex-nowrap">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search documents..."
-              className="min-w-0 basis-full sm:basis-auto flex-1 md:w-72 bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-3 py-2 placeholder-slate-400"
-            />
-            <Button onClick={() => setQuery((q) => q.trim())} variant="outline" className="text-sm shrink-0 w-full sm:w-auto">Search</Button>
-            <Button onClick={() => setIsUploading(true)} variant="primary" className="text-sm shrink-0 w-full sm:w-auto">Upload</Button>
-          </div>
-        </div>
         {isLoading ? (
           <div className="flex justify-center items-center h-40"><LoadingSpinner size="lg" /></div>
         ) : filteredDocs.length === 0 ? (
