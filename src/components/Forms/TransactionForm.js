@@ -25,6 +25,64 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   const [isFormVisible, setIsFormVisible] = useState(true);
   const router = useRouter();
 
+  // helpers
+  const norm = (s) => (s || '').toString().trim().toLowerCase();
+  const typePriority = (t) => {
+    const order = { bank: 5, cash: 4, wallet: 4, 'credit card': 3, loan: 2, investment: 1, other: 1 };
+    return order[String(t || 'other').toLowerCase()] || 1;
+  };
+  const findAccountByName = (name, list) => {
+    const arr = Array.isArray(list) ? list : accounts;
+    const query = norm(name);
+    if (!query) return null;
+
+    const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Exact match first (prefer non-investment types)
+    let exactMatches = arr.filter(a => norm(a.name) === query);
+    if (exactMatches.length) {
+      exactMatches.sort((a, b) => typePriority(b.type) - typePriority(a.type));
+      return exactMatches[0];
+    }
+
+    // Word-boundary match (e.g., 'sbi' should not match 'sip stock')
+    const wb = new RegExp(`(^|\\b|\\s)${escapeRegex(query)}(\\b|\\s|$)`, 'i');
+    let wbMatches = arr.filter(a => wb.test(String(a?.name || '')));
+    if (wbMatches.length) {
+      wbMatches.sort((a, b) => typePriority(b.type) - typePriority(a.type));
+      return wbMatches[0];
+    }
+
+    // Token overlap match (at least one full token equal)
+    const qTokens = query.split(/[^a-z0-9]+/).filter(Boolean);
+    const scored = arr
+      .map(a => {
+        const t = norm(a.name).split(/[^a-z0-9]+/).filter(Boolean);
+        const overlap = qTokens.filter(qt => t.includes(qt));
+        return { a, score: overlap.length, pr: typePriority(a.type) };
+      })
+      .filter(x => x.score > 0)
+      .sort((x, y) => (y.score - x.score) || (y.pr - x.pr));
+    if (scored.length) return scored[0].a;
+
+    // Fallback to substring includes
+    const inc = arr.filter(a => norm(a.name).includes(query));
+    if (inc.length) {
+      inc.sort((a, b) => typePriority(b.type) - typePriority(a.type));
+      return inc[0];
+    }
+    return null;
+  };
+  const findLoanAccount = (list) => {
+    const arr = Array.isArray(list) ? list : accounts;
+    // prefer names that include 'loan' first
+    return (
+      arr.find(a => /\bloan\b/.test(norm(a?.name))) ||
+      arr.find(a => norm(a?.name).includes('loan')) ||
+      null
+    );
+  };
+
   // Ensure inputs behave nicely on focus on mobile/desktop
   const handleInputFocus = (e) => {
     try {
@@ -51,9 +109,21 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         const data = await api('/api/accounts');
         setAccounts(data);
 
-        // If no account is selected, select the first one by default
+        // If no account is selected, select the first one by default (or Loan for EMI)
         if (!formData.account_id && data.length > 0) {
-          setFormData(prev => ({ ...prev, account_id: data[0]._id }));
+          const loanAcc = formData.category === 'EMI Payment' ? findLoanAccount(data) : null;
+          setFormData(prev => ({ ...prev, account_id: (loanAcc?._id || data[0]._id) }));
+        }
+
+        // If EMI category is selected but a non-loan account is chosen, try switch to a loan account
+        if (formData.category === 'EMI Payment' && formData.type !== 'transfer') {
+          const current = data.find(a => a._id === formData.account_id);
+          if (!current || !/\bloan\b/i.test(String(current?.name))) {
+            const loanAcc = findLoanAccount(data);
+            if (loanAcc) {
+              setFormData(prev => ({ ...prev, account_id: loanAcc._id, type: 'expense' }));
+            }
+          }
         }
 
         // If transfer type, prefill from/to accounts with sensible defaults
@@ -106,6 +176,18 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       return;
     }
 
+    // Special handling when picking EMI category: default to Loan account and expense type
+    if (name === 'category' && parsedValue === 'EMI Payment') {
+      const loanAcc = findLoanAccount(accounts);
+      setFormData(prev => ({
+        ...prev,
+        category: 'EMI Payment',
+        type: 'expense',
+        account_id: loanAcc?._id || prev.account_id || (accounts[0]?._id ?? ''),
+      }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: parsedValue,
@@ -124,6 +206,9 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         body: { note: aiNote },
       });
 
+      // Ensure we have accounts available for mapping
+      const accs = accounts && accounts.length ? accounts : await api('/api/accounts');
+
       // Normalize and map AI output
       const next = { ...formData };
       // Store the original prompt in the notes
@@ -136,13 +221,10 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         next.type = 'transfer';
         next.category = 'Transfer';
         // Attempt to map human-readable names to IDs
-        const norm = (s) => (s || '').toString().trim().toLowerCase();
         const fromName = norm(parsedData.from_account);
         const toName = norm(parsedData.to_account);
-        const findByName = (name) =>
-          accounts.find(a => norm(a.name) === name || (name && norm(a.name).includes(name)));
-        const fromAcc = findByName(fromName) || accounts[0];
-        const toAcc = findByName(toName) || accounts.find(a => a._id !== (fromAcc?._id)) || accounts[0];
+        const fromAcc = findAccountByName(fromName, accs) || accs[0];
+        const toAcc = findAccountByName(toName, accs) || accs.find(a => a._id !== (fromAcc?._id)) || accs[0];
         next.from_account_id = fromAcc?._id || '';
         next.to_account_id = toAcc?._id || '';
       } else {
@@ -158,7 +240,60 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         const aiCat = parsedData.category;
         next.category = validCategories.includes(aiCat) ? aiCat : (next.category || 'Other');
         // ensure account_id default exists
-        next.account_id = next.account_id || accounts[0]?._id || '';
+        if (next.category === 'EMI Payment') {
+          // Try to detect transfer if both accounts exist: from bank (e.g., SBI) to loan account (e.g., NAVI Loan)
+          let fromName = parsedData.from_account;
+          let toName = parsedData.to_account || 'loan';
+
+          // Extract lender hint from the original note if available (e.g., 'paid navi emi from sbi 100' => 'navi')
+          let lenderHint = '';
+          try {
+            const raw = String(aiNote || '');
+            // capture word(s) before 'emi' as potential lender (limited length to avoid swallowing too much)
+            const m = raw.match(/(?:pay|paid|padi)?\s*([a-z0-9 &.-]{2,30})\s*(?:loan\s*)?emi/i);
+            if (m && m[1]) lenderHint = m[1].trim();
+          } catch {}
+
+          // Prefer matching a loan account that includes the lender hint
+          let candidateLoan = null;
+          if (lenderHint) {
+            candidateLoan = findAccountByName(lenderHint + ' loan', accs) ||
+                            findAccountByName(lenderHint, accs) ||
+                            accs.find(a => norm(a.name).includes(norm(lenderHint)) && /loan/.test(norm(a.name))) ||
+                            null;
+          }
+          // Fallbacks
+          candidateLoan = candidateLoan || findAccountByName(toName, accs) || findLoanAccount(accs);
+          let candidateFrom = findAccountByName(fromName, accs);
+
+          // If from account is still missing, try to extract it from the note: "from <bank>"
+          if (!candidateFrom) {
+            try {
+              const raw = String(aiNote || '');
+              const mFrom = raw.match(/from\s+([a-z0-9 &.-]{2,40})/i);
+              if (mFrom && mFrom[1]) {
+                const hint = mFrom[1].trim();
+                candidateFrom = findAccountByName(hint, accs);
+              }
+            } catch {}
+          }
+
+          if (candidateLoan && candidateFrom && candidateLoan._id !== candidateFrom._id) {
+            // Convert to transfer
+            next.type = 'transfer';
+            next.category = 'Transfer';
+            next.from_account_id = candidateFrom._id;
+            next.to_account_id = candidateLoan._id;
+          } else {
+            // Fallback to expense with a Loan account if available
+            const loanAcc = candidateLoan || findLoanAccount(accs);
+            next.type = 'expense';
+            // Prefer the source bank account if available to avoid wrong picks like 'sip stock'
+            next.account_id = (candidateFrom?._id) || (loanAcc?._id) || next.account_id || accs[0]?._id || '';
+          }
+        } else {
+          next.account_id = next.account_id || accs[0]?._id || '';
+        }
       }
 
       setFormData(next);

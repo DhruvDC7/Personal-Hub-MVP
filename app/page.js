@@ -19,6 +19,7 @@ function Dashboard() {
   const { user } = useAuth();
   // Breakdown by account balances
   const [accountBreakdown, setAccountBreakdown] = useState({ bank: 0, loan: 0, investment: 0 });
+  const [generatingReport, setGeneratingReport] = useState(false);
   
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -109,6 +110,29 @@ function Dashboard() {
     }
   }, []);
 
+  const handleGenerateReport = async () => {
+    try {
+      setGeneratingReport(true);
+      const res = await fetch('/api/reports/generate', { method: 'POST' });
+      if (!res.ok) throw new Error(`Failed to generate report: ${res.status}`);
+      const data = await res.json();
+      // Trigger a JSON download for now; will be PDF later
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'financial-report.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -182,6 +206,16 @@ function Dashboard() {
                 }}
               />
               <div className="absolute inset-3 rounded-full bg-[var(--card)]" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={handleGenerateReport}
+                  disabled={generatingReport}
+                  className="text-xs px-3 py-1.5 rounded-full bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed shadow"
+                >
+                  {generatingReport ? 'Generating…' : 'Get report'}
+                </button>
+              </div>
             </div>
             {/* Legend */}
             <div className="space-y-3">

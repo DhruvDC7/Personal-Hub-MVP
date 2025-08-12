@@ -1,72 +1,68 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { requireAuth } from '@/middleware/auth';
 import { CATEGORIES } from '@/constants/categories';
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
-
-const model = genAI.getGenerativeModel({ 
-  model: 'gemini-1.5-flash',
-  generationConfig: { responseMimeType: 'application/json' },
-});
-
-const categories = CATEGORIES;
-
-const systemPrompt = `
-You are an intelligent financial assistant. Your task is to parse a user's natural language note about a transaction and extract the following details in a structured JSON format.
-
-Output a JSON object that follows this schema:
-{
-  "type": "object",
-  "properties": {
-    "amount": { "type": "number" },
-    "type": { "type": "string", "enum": ["income", "expense", "transfer"] },
-    "category": { "type": "string", "enum": [${categories.map(c => `"${c}"`).join(', ')}] },
-    "from_account": { "type": "string" },
-    "to_account": { "type": "string" }
-  },
-  "required": ["amount", "type", "category"]
-}
-
-Strict rules and mappings:
-- If the note indicates a transfer between two of the user's accounts (e.g., "transfer 500 from savings to checking", "moved 2,000 to FD", "sent from wallet to bank"), then:
-  - Set "type" to "transfer".
-  - Set "category" to "Transfer" (even if not in the natural note).
-  - If possible, infer human-readable "from_account" and "to_account" names from the note; otherwise omit them.
-
-- If the note indicates a loan EMI payment, loan repayment, mortgage payment, credit card bill payment, or similar debt servicing (e.g., "paid EMI 12,000 for home loan", "credit card bill 5,500"), then:
-  - Set "type" to "expense".
-  - Set "category" to "EMI Payment" when it is a loan/EMI; for credit card bill, prefer "Financial Expenses" if EMI Payment is not applicable.
-
-- If the note indicates salary or income (e.g., "salary credited", "received 10,000 from freelance"), set "type" to "income" and choose the best category (e.g., "Salary" for salary).
-
-- Always set "amount" as a number (no currency symbols or commas).
-
-Return only the JSON object, without any additional text.
-`;
+import { aiJSONPrompt } from '@/lib/ai';
 
 export async function POST(req) {
   try {
-    requireAuth(req);
+    const { userId } = requireAuth(req);
     const { note } = await req.json();
 
     if (!note) {
       return new Response(JSON.stringify({ error: 'Note is required' }), { status: 400 });
     }
+    const prompt = `
+You are a financial transaction parser. Return ONLY JSON matching this schema:
+{
+  "amount": number,
+  "type": "income" | "expense" | "transfer",
+  "category": ${JSON.stringify(CATEGORIES)},
+  "from_account": string,
+  "to_account": string
+}
 
-    const chat = model.startChat({
-      history: [
-        { role: 'user', parts: [{ text: systemPrompt }] },
-      ],
-    });
+Rules:
+- If transfer between user's accounts, set type="transfer" and category="Transfer"; infer from_account/to_account when possible.
+- For EMI/loan payments, set type="expense" and category="EMI Payment". Unless the note explicitly says otherwise, set to_account="Loan". Infer from_account from the note (e.g., specific bank or wallet) or leave a simple generic value like "Bank" if not stated.
+- For credit card bill payments (non-EMI), set type="expense" and category="Financial Expenses". to_account should be the specific card account if mentioned, else "Credit Card".
+- For salary/income, set type="income" with appropriate category (e.g., "Salary").
+- amount must be a number with no symbols or commas.
 
-    const result = await chat.sendMessage(note);
-    
-    const response = result.response;
-    const parsedText = response.text();
-    
-    const data = JSON.parse(parsedText);
+Examples:
+- Note: "pay emi 100"
+  -> { "amount": 100, "type": "expense", "category": "EMI Payment", "from_account": "Bank", "to_account": "Loan" }
+- Note: "Paid HDFC loan emi 2500 from SBI"
+  -> { "amount": 2500, "type": "expense", "category": "EMI Payment", "from_account": "SBI", "to_account": "HDFC Loan" }
+- Note: "Credit card bill 1200"
+  -> { "amount": 1200, "type": "expense", "category": "Financial Expenses", "from_account": "Bank", "to_account": "Credit Card" }
 
-    return new Response(JSON.stringify(data), { status: 200 });
+Data:
+Note: ${note}
+Categories: ${JSON.stringify(CATEGORIES)}
+UserContext: ${JSON.stringify({ userId })}
+`;
+
+    const data = await aiJSONPrompt(prompt);
+
+    // Post-processing safeguards for EMI defaults
+    const lowerNote = String(note || '').toLowerCase();
+    const isEMINote = /\bemi\b|\bloan\b/.test(lowerNote);
+    const out = { ...(data || {}) };
+
+    if (isEMINote && out?.category === 'EMI Payment') {
+      // ensure type and to_account defaults
+      out.type = 'expense';
+      if (!out.to_account || /^(bank|cash|wallet)$/i.test(String(out.to_account))) {
+        out.to_account = 'Loan';
+      }
+    }
+
+    // Normalize amount to number if it's a numeric string
+    if (out.amount != null && typeof out.amount !== 'number') {
+      const n = Number(String(out.amount).replace(/[\,\s]/g, ''));
+      if (!Number.isNaN(n)) out.amount = n;
+    }
+
+    return new Response(JSON.stringify(out), { status: 200 });
 
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Failed to parse transaction with AI.' }), { status: 500 });
