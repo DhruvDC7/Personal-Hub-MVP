@@ -32,12 +32,12 @@ export default function AccountsPage() {
   }, []);
 
   const handleDelete = async (accountId) => {
-    if (!window.confirm('Are you sure you want to delete this account? This action cannot be undone.')) {
+    if (!window.confirm('This will permanently delete the account and all its transactions. Continue?')) {
       return;
     }
 
     try {
-      await api(`/api/accounts?id=${accountId}`, { method: 'DELETE' });
+      await api(`/api/accounts?id=${accountId}&force=true`, { method: 'DELETE' });
       showToast({ type: 'success', message: 'Account deleted successfully' });
       fetchAccounts();
       router.refresh();
@@ -62,7 +62,7 @@ export default function AccountsPage() {
       header: 'Account Name',
       render: (account) => (
         <Link 
-          href={`/transactions?account=${account.id}`}
+          href={`/transactions?account=${account._id}`}
           className="text-sky-400 hover:text-sky-500"
         >
           {account.name}
@@ -100,7 +100,7 @@ export default function AccountsPage() {
             Edit
           </Button>
           <Button
-            onClick={() => handleDelete(account.id)}
+            onClick={() => handleDelete(account._id)}
             variant="ghost"
             className="text-red-600 hover:bg-red-600/10"
             size="sm"

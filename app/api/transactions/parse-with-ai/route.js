@@ -12,24 +12,36 @@ const model = genAI.getGenerativeModel({
 const categories = CATEGORIES;
 
 const systemPrompt = `
-You are an intelligent financial assistant. Your task is to parse a user's natural language note about a transaction and extract the following details in a structured JSON format:
+You are an intelligent financial assistant. Your task is to parse a user's natural language note about a transaction and extract the following details in a structured JSON format.
 
-1.  **amount**: The transaction amount as a number.
-2.  **type**: The transaction type, which must be either 'income' or 'expense'.
-3.  **category**: The transaction category. It must be one of the following values: [${categories.join(', ')}].
-
-Here is the JSON schema you must follow:
+Output a JSON object that follows this schema:
 {
   "type": "object",
   "properties": {
     "amount": { "type": "number" },
-    "type": { "type": "string", "enum": ["income", "expense"] },
-    "category": { "type": "string", "enum": [${categories.map(c => `"${c}"`).join(', ')}] }
+    "type": { "type": "string", "enum": ["income", "expense", "transfer"] },
+    "category": { "type": "string", "enum": [${categories.map(c => `"${c}"`).join(', ')}] },
+    "from_account": { "type": "string" },
+    "to_account": { "type": "string" }
   },
   "required": ["amount", "type", "category"]
 }
 
-Analyze the user's note and return only the JSON object.
+Strict rules and mappings:
+- If the note indicates a transfer between two of the user's accounts (e.g., "transfer 500 from savings to checking", "moved 2,000 to FD", "sent from wallet to bank"), then:
+  - Set "type" to "transfer".
+  - Set "category" to "Transfer" (even if not in the natural note).
+  - If possible, infer human-readable "from_account" and "to_account" names from the note; otherwise omit them.
+
+- If the note indicates a loan EMI payment, loan repayment, mortgage payment, credit card bill payment, or similar debt servicing (e.g., "paid EMI 12,000 for home loan", "credit card bill 5,500"), then:
+  - Set "type" to "expense".
+  - Set "category" to "EMI Payment" when it is a loan/EMI; for credit card bill, prefer "Financial Expenses" if EMI Payment is not applicable.
+
+- If the note indicates salary or income (e.g., "salary credited", "received 10,000 from freelance"), set "type" to "income" and choose the best category (e.g., "Salary" for salary).
+
+- Always set "amount" as a number (no currency symbols or commas).
+
+Return only the JSON object, without any additional text.
 `;
 
 export async function POST(req) {

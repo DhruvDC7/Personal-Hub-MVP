@@ -88,12 +88,12 @@ export default function TransactionsPage() {
     router.refresh();
   };
 
-  // Calculate totals
+  // Calculate totals (ignore transfers)
   const { totalIncome, totalExpense } = transactions.reduce(
     (acc, txn) => {
       if (txn.type === 'income') {
         acc.totalIncome += txn.amount;
-      } else {
+      } else if (txn.type === 'expense') {
         acc.totalExpense += txn.amount;
       }
       return acc;
@@ -101,31 +101,43 @@ export default function TransactionsPage() {
     { totalIncome: 0, totalExpense: 0 }
   );
 
+  const nameById = (id) => accounts.find(a => a._id === id)?.name || 'Unknown';
+
   const columns = [
     { 
       key: 'date', 
       header: 'Date',
-      render: (txn) => formatDate(txn.happened_on)
+      render: (txn) => formatDate(txn.happened_on || txn.created_on)
     },
     { 
       key: 'description', 
       header: 'Description',
-      render: (txn) => txn.note || txn.category
+      render: (txn) => txn.type === 'transfer'
+        ? `Transfer: ${nameById(txn.from_account_id)} → ${nameById(txn.to_account_id)}`
+        : (txn.note || txn.category)
     },
     { 
       key: 'account', 
       header: 'Account',
-      render: (txn) =>
-        accounts.find(a => a._id === txn.account_id)?.name || 'Unknown'
+      render: (txn) => txn.type === 'transfer'
+        ? `${nameById(txn.from_account_id)} → ${nameById(txn.to_account_id)}`
+        : nameById(txn.account_id)
     },
     { 
       key: 'amount', 
       header: 'Amount',
-      render: (txn) => (
-        <span className={txn.type === 'income' ? 'text-green-600' : 'text-red-600'}>
-          {txn.type === 'income' ? '+' : '-'}{formatINR(txn.amount)}
-        </span>
-      )
+      render: (txn) => {
+        if (txn.type === 'transfer') {
+          return (
+            <span className="text-slate-300">{formatINR(txn.amount)}</span>
+          );
+        }
+        return (
+          <span className={txn.type === 'income' ? 'text-green-600' : 'text-red-600'}>
+            {txn.type === 'income' ? '+' : '-'}{formatINR(txn.amount)}
+          </span>
+        );
+      }
     },
     {
       key: 'actions',
@@ -140,6 +152,8 @@ export default function TransactionsPage() {
             variant="ghost"
             size="sm"
             className="text-sky-400 hover:bg-sky-500/10"
+            disabled={txn.type === 'transfer'}
+            title={txn.type === 'transfer' ? 'Editing transfers is not supported' : 'Edit'}
           >
             Edit
           </Button>

@@ -11,5 +11,6 @@ export const CATEGORIES = [
   'Salary',
   'Insurance',
   'EMI Payment',
+  'Transfer',
   'Other',
 ];

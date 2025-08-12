@@ -37,8 +37,9 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
     setIsSubmitting(true);
 
     try {
-      const method = initialData.id ? 'PUT' : 'POST';
-      const payload = initialData.id ? { id: initialData.id, ...formData } : formData;
+      const existingId = initialData.id || initialData._id;
+      const method = existingId ? 'PUT' : 'POST';
+      const payload = existingId ? { id: existingId, ...formData } : formData;
 
       await api('/api/accounts', {
         method,
@@ -47,7 +48,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
 
       showToast({
         type: 'success',
-        message: `Account ${initialData.id ? 'updated' : 'created'} successfully`,
+        message: `Account ${existingId ? 'updated' : 'created'} successfully`,
       });
       router.refresh();
       if (onSuccess) onSuccess();

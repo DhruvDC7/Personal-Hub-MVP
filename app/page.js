@@ -17,46 +17,62 @@ function Dashboard() {
   const [documentCount, setDocumentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
-  const [totals, setTotals] = useState({ spent: 0, earned: 0 });
+  // Breakdown by account balances
+  const [accountBreakdown, setAccountBreakdown] = useState({ assets: 0, liabilities: 0 });
   
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Fetch net worth data
-      const netWorthResponse = await fetch('/api/metrics/networth');
+      const netWorthResponse = await fetch('/api/metrics/networth', { cache: 'no-store' });
       if (!netWorthResponse.ok) {
         throw new Error(`HTTP error! status: ${netWorthResponse.status}`);
       }
       const netWorthData = await netWorthResponse.json();
+      // Set net worth immediately so later failures don't block it
+      if (netWorthData.status) {
+        setNetWorth(netWorthData.data);
+      }
       
-      // Fetch recent transactions
-      const transactionsResponse = await fetch('/api/transactions?limit=25&sort=created_on');
+      // Fetch accounts data early to compute breakdown
+      const accountsResponse = await fetch('/api/accounts', { cache: 'no-store' });
+      if (!accountsResponse.ok) {
+        throw new Error(`HTTP error! status: ${accountsResponse.status}`);
+      }
+      const accountsData = await accountsResponse.json();
+      if (accountsData.status) {
+        setAccountCount(accountsData.data.length);
+        // Compute breakdown from accounts: assets vs liabilities
+        const subtractTypes = new Set(['loan', 'liability', 'credit']);
+        let assets = 0;
+        let liabilities = 0;
+        for (const a of accountsData.data) {
+          const balance = Number(a?.balance) || 0;
+          const type = String(a?.type || 'asset').toLowerCase();
+          if (subtractTypes.has(type)) {
+            liabilities += Math.abs(balance);
+          } else {
+            assets += Math.max(balance, 0);
+          }
+        }
+        setAccountBreakdown({ assets, liabilities });
+      }
+
+      // Fetch recent transactions (for list only)
+      const transactionsResponse = await fetch('/api/transactions?limit=25&sort=created_on', { cache: 'no-store' });
       if (!transactionsResponse.ok) {
         throw new Error(`HTTP error! status: ${transactionsResponse.status}`);
       }
       const transactionsData = await transactionsResponse.json();
       
-      // Fetch accounts data
-      const accountsResponse = await fetch('/api/accounts');
-      if (!accountsResponse.ok) {
-        throw new Error(`HTTP error! status: ${accountsResponse.status}`);
-      }
-      const accountsData = await accountsResponse.json();
-      
       // Fetch documents count
-      const documentsResponse = await fetch('/api/documents');
+      const documentsResponse = await fetch('/api/documents', { cache: 'no-store' });
       if (!documentsResponse.ok) {
         throw new Error(`HTTP error! status: ${documentsResponse.status}`);
       }
       const documentsData = await documentsResponse.json();
       
-      if (netWorthData.status) {
-        setNetWorth(netWorthData.data);
-      }
       
-      if (accountsData.status) {
-        setAccountCount(accountsData.data.length);
-      }
       
       if (documentsData.success) {
         setDocumentCount(documentsData.data.length || 0);
@@ -64,17 +80,6 @@ function Dashboard() {
       
       const txns = transactionsData.data || [];
       setRecentTransactions(txns);
-      // Compute totals for donut: earned vs spent
-      let spent = 0;
-      let earned = 0;
-      for (const t of txns) {
-        if (t.type === 'income') {
-          earned += Math.abs(Number(t.amount) || 0);
-        } else {
-          spent += Math.abs(Number(t.amount) || 0);
-        }
-      }
-      setTotals({ spent, earned });
     } catch (error) {
       // You might want to show an error toast here
     } finally {
@@ -93,9 +98,9 @@ function Dashboard() {
       </div>
     );
   }
-  const totalAmount = totals.spent + totals.earned;
-  const earnedPct = totalAmount ? Math.round((totals.earned / totalAmount) * 100) : 0;
-  const spentPct = 100 - earnedPct;
+  const totalAmount = accountBreakdown.assets + accountBreakdown.liabilities;
+  const assetsPct = totalAmount ? Math.round((accountBreakdown.assets / totalAmount) * 100) : 0;
+  const liabilitiesPct = 100 - assetsPct;
 
   return (
     <div className="space-y-6">
@@ -142,11 +147,11 @@ function Dashboard() {
           </div>
           <div className="mt-4 flex items-center gap-6">
             {/* Donut */}
-            <div className="relative h-28 w-28 shrink-0" aria-label={`Earned ${earnedPct}% Spent ${spentPct}%`}>
+            <div className="relative h-28 w-28 shrink-0" aria-label={`Assets ${assetsPct}% Liabilities ${liabilitiesPct}%`}>
               <div
                 className="h-full w-full rounded-full"
                 style={{
-                  background: `conic-gradient(#10b981 0% ${earnedPct}%, #ef4444 ${earnedPct}% 100%)`,
+                  background: `conic-gradient(#10b981 0% ${assetsPct}%, #ef4444 ${assetsPct}% 100%)`,
                 }}
               />
               <div className="absolute inset-3 rounded-full bg-[var(--card)]" />
@@ -156,15 +161,15 @@ function Dashboard() {
               <div className="flex items-center gap-3">
                 <span className="h-3 w-3 rounded-full bg-emerald-500" />
                 <div>
-                  <p className="text-sm text-slate-400">Earned</p>
-                  <p className="font-medium">{formatINR(totals.earned)}</p>
+                  <p className="text-sm text-slate-400">Assets</p>
+                  <p className="font-medium">{formatINR(accountBreakdown.assets)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="h-3 w-3 rounded-full bg-red-500" />
                 <div>
-                  <p className="text-sm text-slate-400">Spent</p>
-                  <p className="font-medium">{formatINR(totals.spent)}</p>
+                  <p className="text-sm text-slate-400">Liabilities</p>
+                  <p className="font-medium">{formatINR(accountBreakdown.liabilities)}</p>
                 </div>
               </div>
             </div>

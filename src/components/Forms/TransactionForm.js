@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/Button';
 export default function TransactionForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
     account_id: initialData.account_id || initialData.account?._id || '',
+    from_account_id: initialData.from_account_id || '',
+    to_account_id: initialData.to_account_id || '',
     type: initialData.type || 'expense',
     amount: initialData.amount || '',
     category: initialData.category || '',
@@ -20,7 +22,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiNote, setAiNote] = useState('');
   const [isParsing, setIsParsing] = useState(false);
-  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [isFormVisible, setIsFormVisible] = useState(true);
   const router = useRouter();
 
   // Ensure inputs behave nicely on focus on mobile/desktop
@@ -53,6 +55,18 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         if (!formData.account_id && data.length > 0) {
           setFormData(prev => ({ ...prev, account_id: data[0]._id }));
         }
+
+        // If transfer type, prefill from/to accounts with sensible defaults
+        if (formData.type === 'transfer' && data.length > 0) {
+          const fromDefault = formData.from_account_id || data[0]._id;
+          // choose a different account for "to" if possible
+          const toDefault = formData.to_account_id || (data.find(a => a._id !== fromDefault)?._id || data[0]._id);
+          setFormData(prev => ({
+            ...prev,
+            from_account_id: fromDefault,
+            to_account_id: toDefault,
+          }));
+        }
       } catch (error) {
         // Error handled by the UI state
       } finally {
@@ -65,9 +79,36 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    const parsedValue = type === 'number' ? parseFloat(value) || 0 : value;
+
+    // Special handling when switching transaction type
+    if (name === 'type') {
+      if (parsedValue === 'transfer') {
+        // Ensure from/to are prefilled with valid distinct accounts
+        const fromDefault = formData.from_account_id || (accounts[0]?._id ?? '');
+        const toDefault = formData.to_account_id || (accounts.find(a => a._id !== fromDefault)?._id || fromDefault);
+        setFormData(prev => ({
+          ...prev,
+          type: 'transfer',
+          from_account_id: fromDefault,
+          to_account_id: toDefault,
+          // category is controlled later (disabled for transfer)
+        }));
+        return;
+      }
+      // switching away from transfer, ensure account_id is set
+      const fallbackAccount = formData.account_id || (accounts[0]?._id ?? '');
+      setFormData(prev => ({
+        ...prev,
+        type: parsedValue,
+        account_id: fallbackAccount,
+      }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value,
+      [name]: parsedValue,
     }));
   };
 
@@ -83,13 +124,44 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         body: { note: aiNote },
       });
 
-      setFormData(prev => ({
-        ...prev,
-        amount: parsedData.amount || prev.amount,
-        type: parsedData.type || prev.type,
-        category: parsedData.category || prev.category,
-        note: aiNote, // Store the original prompt in the notes
-      }));
+      // Normalize and map AI output
+      const next = { ...formData };
+      // Store the original prompt in the notes
+      next.note = aiNote;
+      if (typeof parsedData.amount === 'number' && !Number.isNaN(parsedData.amount)) {
+        next.amount = parsedData.amount;
+      }
+
+      if (parsedData.type === 'transfer') {
+        next.type = 'transfer';
+        next.category = 'Transfer';
+        // Attempt to map human-readable names to IDs
+        const norm = (s) => (s || '').toString().trim().toLowerCase();
+        const fromName = norm(parsedData.from_account);
+        const toName = norm(parsedData.to_account);
+        const findByName = (name) =>
+          accounts.find(a => norm(a.name) === name || (name && norm(a.name).includes(name)));
+        const fromAcc = findByName(fromName) || accounts[0];
+        const toAcc = findByName(toName) || accounts.find(a => a._id !== (fromAcc?._id)) || accounts[0];
+        next.from_account_id = fromAcc?._id || '';
+        next.to_account_id = toAcc?._id || '';
+      } else {
+        // income/expense
+        if (parsedData.type === 'income' || parsedData.type === 'expense') {
+          next.type = parsedData.type;
+        }
+        // Keep category if provided and valid; else default
+        const validCategories = [
+          'Food & Drinks','Shopping','Housing','Transportation','Vehicle','Life & Entertainment',
+          'Communication','Financial Expenses','Investments','Salary','Insurance','EMI Payment','Transfer','Other'
+        ];
+        const aiCat = parsedData.category;
+        next.category = validCategories.includes(aiCat) ? aiCat : (next.category || 'Other');
+        // ensure account_id default exists
+        next.account_id = next.account_id || accounts[0]?._id || '';
+      }
+
+      setFormData(next);
 
       showToast({ type: 'success', message: 'Form pre-filled with AI!' });
       setIsFormVisible(true);
@@ -105,17 +177,36 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     setIsSubmitting(true);
 
     try {
-      // Ensure account_id is properly set from the selected account
-      const selectedAccount = accounts.find(acc => acc._id === formData.account_id);
-      if (!selectedAccount) {
-        throw new Error('Please select a valid account');
-      }
+      let payload;
 
-      const payload = {
-        ...formData,
-        account_id: selectedAccount._id, // Ensure we're using the _id from the account object
-        amount: Number(formData.amount),
-      };
+      if (formData.type === 'transfer') {
+        const fromAcc = accounts.find(acc => acc._id === formData.from_account_id);
+        const toAcc = accounts.find(acc => acc._id === formData.to_account_id);
+        if (!fromAcc || !toAcc) throw new Error('Please select valid From and To accounts');
+        if (fromAcc._id === toAcc._id) throw new Error('From and To accounts must be different');
+        payload = {
+          type: 'transfer',
+          from_account_id: fromAcc._id,
+          to_account_id: toAcc._id,
+          amount: Number(formData.amount),
+          category: 'Transfer',
+          note: formData.note || '',
+        };
+      } else {
+        // Ensure account_id is properly set from the selected account
+        const selectedAccount = accounts.find(acc => acc._id === formData.account_id);
+        if (!selectedAccount) {
+          throw new Error('Please select a valid account');
+        }
+        // Build minimal payload for expense/income to avoid forbidden empty fields
+        payload = {
+          type: formData.type,
+          account_id: selectedAccount._id,
+          amount: Number(formData.amount),
+          category: formData.category,
+          note: formData.note || '',
+        };
+      }
 
       if (initialData.id) {
         // Update existing transaction
@@ -211,25 +302,68 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         </select>
       </div>
 
-      <div>
-        <label htmlFor="account_id" className="block text-sm font-medium text-[var(--muted)] mb-1">
-          Account
-        </label>
-        <select
-          id="account_id"
-          name="account_id"
-          value={formData.account_id}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
-          required
-        >
-          {accounts.map((account) => (
-            <option key={account._id} value={account._id}>
-              {account.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {formData.type === 'transfer' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="from_account_id" className="block text-sm font-medium text-[var(--muted)] mb-1">
+              From Account
+            </label>
+            <select
+              id="from_account_id"
+              name="from_account_id"
+              value={formData.from_account_id}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+              required
+            >
+              {accounts.map((account) => (
+                <option key={account._id} value={account._id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="to_account_id" className="block text-sm font-medium text-[var(--muted)] mb-1">
+              To Account
+            </label>
+            <select
+              id="to_account_id"
+              name="to_account_id"
+              value={formData.to_account_id}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+              required
+            >
+              {accounts.map((account) => (
+                <option key={account._id} value={account._id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <label htmlFor="account_id" className="block text-sm font-medium text-[var(--muted)] mb-1">
+            Account
+          </label>
+          <select
+            id="account_id"
+            name="account_id"
+            value={formData.account_id}
+            onChange={handleChange}
+            className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+            required
+          >
+            {accounts.map((account) => (
+              <option key={account._id} value={account._id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div>
         <label htmlFor="amount" className="block text-sm font-medium text-[var(--muted)] mb-1">
@@ -238,7 +372,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         <div className="relative rounded-lg overflow-hidden">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <span className="text-[var(--muted)] text-sm font-medium">
-              {formData.type === 'expense' ? '-' : '+'} ₹
+              {formData.type === 'expense' ? '-' : formData.type === 'income' ? '+' : ''} ₹
             </span>
           </div>
           <input
@@ -264,17 +398,24 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         <select
           id="category"
           name="category"
-          value={formData.category}
+          value={formData.type === 'transfer' ? 'Transfer' : formData.category}
           onChange={handleChange}
           className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
-          required
+          required={formData.type !== 'transfer'}
+          disabled={formData.type === 'transfer'}
         >
-          <option value="">Select a category</option>
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
+          {formData.type !== 'transfer' ? (
+            <>
+              <option value="">Select a category</option>
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </>
+          ) : (
+            <option value="Transfer">Transfer</option>
+          )}
         </select>
       </div>
 

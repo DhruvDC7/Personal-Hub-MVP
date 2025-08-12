@@ -32,7 +32,12 @@ export async function GET(req) {
     if (type) query.type = type;
     
     if (account) {
-      query.account_id = account;
+      // Include single-account txns and transfers involving this account
+      query.$or = [
+        { account_id: account },
+        { from_account_id: account },
+        { to_account_id: account },
+      ];
     }
 
     const { status, data, message } = await MongoClientFind(
@@ -64,17 +69,100 @@ export async function POST(req) {
     }
     
     const { userId } = requireAuth(req);
-    const doc = {
-      ...value,
+    const now = new Date();
+    const baseDoc = {
       user_id: userId,
-
-      created_on: new Date(),
-      updated_on: new Date(),
+      created_on: now,
+      updated_on: now,
+      happened_on: value.happened_on ? new Date(value.happened_on) : now,
     };
-    
+
+    // Same-currency only logic for transfers
+    if (value.type === 'transfer') {
+      const { from_account_id, to_account_id, amount, currency } = value;
+      if (from_account_id === to_account_id) {
+        return new Response(errorObject("From and To accounts must differ", 400), { status: 400 });
+      }
+
+      // Load both accounts and validate ownership + currency
+      const [fromRes, toRes] = await Promise.all([
+        MongoClientFindOne("accounts", { _id: from_account_id, user_id: userId }),
+        MongoClientFindOne("accounts", { _id: to_account_id, user_id: userId }),
+      ]);
+      if (!fromRes.status || !fromRes.data) {
+        return new Response(errorObject("From account not found", 404), { status: 404 });
+      }
+      if (!toRes.status || !toRes.data) {
+        return new Response(errorObject("To account not found", 404), { status: 404 });
+      }
+      const fromAcc = fromRes.data;
+      const toAcc = toRes.data;
+      const fromCur = fromAcc.currency || currency;
+      const toCur = toAcc.currency || currency;
+      if (fromCur !== toCur) {
+        return new Response(errorObject("Cross-currency transfer not supported", 400), { status: 400 });
+      }
+
+      // Compute balance deltas
+      // Default transfer: decrement from, increment to
+      let fromDelta = -amount;
+      let toDelta = +amount;
+      const isFromLoan = String(fromAcc.type).toLowerCase() === 'loan';
+      const isToLoan = String(toAcc.type).toLowerCase() === 'loan';
+
+      // Loan semantics:
+      // - Repayment (to loan): cash down, loan down
+      if (isToLoan) {
+        fromDelta = -amount; // asset down
+        toDelta = -amount;   // loan down
+      }
+      // - Drawdown (from loan): cash up, loan up
+      else if (isFromLoan) {
+        fromDelta = +amount; // loan up
+        toDelta = +amount;   // asset up
+      }
+
+      // Optional: ensure sufficient funds for asset accounts
+      if (!isFromLoan && (fromAcc.balance ?? 0) < amount) {
+        return new Response(errorObject("Insufficient balance in from account", 400), { status: 400 });
+      }
+
+      const doc = {
+        ...baseDoc,
+        type: 'transfer',
+        from_account_id,
+        to_account_id,
+        amount,
+        currency: fromCur,
+        category: value.category || 'Transfer',
+        note: value.note || '',
+        tags: value.tags || [],
+        attachment_ids: value.attachment_ids || [],
+      };
+
+      const { status, id, message } = await MongoClientInsertOne("transactions", doc);
+      if (!status) throw new Error(message);
+
+      // Apply balance changes
+      await Promise.all([
+        MongoClientUpdateOne("accounts", { _id: from_account_id }, { $inc: { balance: fromDelta }, $set: { updated_on: now } }),
+        MongoClientUpdateOne("accounts", { _id: to_account_id }, { $inc: { balance: toDelta }, $set: { updated_on: now } }),
+      ]);
+
+      return Response.json(
+        { status: true, data: { id, ...doc } },
+        { status: 201 }
+      );
+    }
+
+    // Expense/Income
+    const doc = {
+      ...baseDoc,
+      ...value,
+    };
     const { status, id, message } = await MongoClientInsertOne("transactions", doc);
     if (!status) throw new Error(message);
-    
+
     // Update account balance
     let delta = 0;
     if (value.type === "expense") delta = -value.amount;
@@ -86,7 +174,7 @@ export async function POST(req) {
         { _id: value.account_id },
         {
           $inc: { balance: delta },
-          $set: { updated_on: new Date() },
+          $set: { updated_on: now },
         }
       );
     }
@@ -131,6 +219,11 @@ export async function PUT(req) {
     
     if (!existingStatus || !existing) {
       return new Response(errorObject("Transaction not found", 404), { status: 404 });
+    }
+
+    // Block edits for transfer transactions (not supported in this version)
+    if (existing.type === 'transfer' || type === 'transfer') {
+      return new Response(errorObject("Editing transfers is not supported", 400), { status: 400 });
     }
 
     // Prepare update fields
@@ -251,15 +344,45 @@ export async function DELETE(req) {
       return new Response(errorObject("Transaction not found", 404), { status: 404 });
     }
 
-    // Update account balance
-    const sign = existing.type === "expense" ? 1 : existing.type === "income" ? -1 : 0;
-    
-    if (sign !== 0) {
-      await MongoClientUpdateOne(
-        "accounts",
-        { _id: toObjectId(existing.account_id.toString()) },
-        { $inc: { balance: sign * existing.amount } }
-      );
+    // Update account balance (reverse effects)
+    if (existing.type === 'transfer') {
+      // Reverse transfer deltas based on current account types
+      const [fromRes, toRes] = await Promise.all([
+        MongoClientFindOne("accounts", { _id: existing.from_account_id, user_id: userId }),
+        MongoClientFindOne("accounts", { _id: existing.to_account_id, user_id: userId }),
+      ]);
+      const fromAcc = fromRes?.data || {};
+      const toAcc = toRes?.data || {};
+      const isFromLoan = String(fromAcc.type || '').toLowerCase() === 'loan';
+      const isToLoan = String(toAcc.type || '').toLowerCase() === 'loan';
+
+      // Original deltas in POST:
+      // default: from -amount, to +amount
+      // toLoan: from -amount, to -amount
+      // fromLoan: from +amount, to +amount
+      let fromDelta = -existing.amount;
+      let toDelta = +existing.amount;
+      if (isToLoan) {
+        fromDelta = -existing.amount;
+        toDelta = -existing.amount;
+      } else if (isFromLoan) {
+        fromDelta = +existing.amount;
+        toDelta = +existing.amount;
+      }
+      // Reverse them for delete
+      await Promise.all([
+        MongoClientUpdateOne("accounts", { _id: existing.from_account_id }, { $inc: { balance: -fromDelta } }),
+        MongoClientUpdateOne("accounts", { _id: existing.to_account_id }, { $inc: { balance: -toDelta } }),
+      ]);
+    } else {
+      const sign = existing.type === "expense" ? 1 : existing.type === "income" ? -1 : 0;
+      if (sign !== 0) {
+        await MongoClientUpdateOne(
+          "accounts",
+          { _id: toObjectId(existing.account_id.toString()) },
+          { $inc: { balance: sign * existing.amount } }
+        );
+      }
     }
 
     // Delete transaction

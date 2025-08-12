@@ -9,6 +9,7 @@ import {
   MongoClientDeleteOne,
   MongoClientDocumentCount,
 } from "@/helpers/mongo";
+import { MongoClientDeleteMany } from "@/helpers/mongo";
 import { requireAuth } from "@/middleware/auth";
 
 const toObjectId = (id) => id;
@@ -114,6 +115,7 @@ export async function DELETE(req) {
     const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
     const id = body?.id || searchParams.get("id");
+    const force = (body?.force ?? searchParams.get("force")) === "true";
     if (!id) return new Response(errorObject("id is required", 400), { status: 400 });
 
     try {
@@ -129,11 +131,21 @@ export async function DELETE(req) {
     if (!countStatus) {
       return new Response(errorObject("Internal error", 500), { status: 500 });
     }
-    if (count > 0) {
+    if (count > 0 && !force) {
       return new Response(
         errorObject("Account has transactions", 409),
         { status: 409 }
       );
+    }
+    // Cascade delete transactions if force=true
+    if (count > 0 && force) {
+      const delTx = await MongoClientDeleteMany(
+        "transactions",
+        { account_id: id, user_id: userId }
+      );
+      if (!delTx.status) {
+        return new Response(errorObject("Failed to delete related transactions", 500), { status: 500 });
+      }
     }
     const { status: delStatus, message } = await MongoClientDeleteOne(
       "accounts",

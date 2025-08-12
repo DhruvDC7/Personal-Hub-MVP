@@ -24,6 +24,41 @@ const toObjectId = (id) => {
 };
 
 /**
+ * Deletes multiple documents from a MongoDB collection.
+ */
+export const MongoClientDeleteMany = async (collection, query = {}) => {
+    if (Object.keys(query).length === 0) throw new Error("Query cannot be empty");
+    
+    try {
+        const client = await clientPromise;
+        const db = client.db(DatabaseName);
+        
+        // Convert _id to ObjectId if it exists in the query
+        if (query._id) {
+            query._id = toObjectId(query._id);
+        }
+        
+        const deleteResult = await db.collection(collection).deleteMany(query);
+        
+        return {
+            status: deleteResult.acknowledged === true,
+            mode: "deleteMany",
+            data: deleteResult.deletedCount,
+            id: deleteResult.deletedCount,
+            message: `Deleted ${deleteResult.deletedCount} documents.`
+        };
+    } catch (e) {
+        return {
+            status: false,
+            mode: "error",
+            data: 0,
+            id: "",
+            message: `Internal Server Error: ${e.message}`
+        };
+    }
+};
+
+/**
  * Finds a single document in a MongoDB collection.
  */
 export const MongoClientFindOne = async (collection, query = {}, options = {}) => {
