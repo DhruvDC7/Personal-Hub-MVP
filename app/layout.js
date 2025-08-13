@@ -3,6 +3,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Toast } from '@/components/Toast';
 import { AuthProvider } from '@/hooks/useAuth';
+import FeedbackButton from '@/components/FeedbackButtonWrapper';
 
 export const metadata = {
   title: 'Personal Hub',
@@ -45,6 +46,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
           <Footer />
+          <FeedbackButton />
           <Toast />
         </AuthProvider>
       </body>
