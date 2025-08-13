@@ -4,6 +4,7 @@ import Footer from '@/components/Footer';
 import { Toast } from '@/components/Toast';
 import { AuthProvider } from '@/hooks/useAuth';
 import FeedbackButton from '@/components/FeedbackButtonWrapper';
+import BottomNav from '@/components/navigation/BottomNav';
 
 export const metadata = {
   title: 'Personal Hub',
@@ -41,10 +42,11 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <Navbar />
           <main
-            className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 pt-20 min-h-[calc(100vh-4rem)] overflow-hidden flex flex-col"
+            className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 pt-20 pb-24 md:pb-6 min-h-[calc(100vh-4rem)] overflow-hidden flex flex-col"
           >
             {children}
           </main>
+          <BottomNav />
           <Footer />
           <FeedbackButton />
           <Toast />

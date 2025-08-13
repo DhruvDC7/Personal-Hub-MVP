@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import Button from './ui/Button';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,30 @@ export default function FeedbackButton() {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
 
+  // Listen for global events to open/close modal (from BottomNav)
+  useEffect(() => {
+    const open = () => setIsOpen(true);
+    const close = () => setIsOpen(false);
+    window.addEventListener('open-feedback', open);
+    window.addEventListener('close-feedback', close);
+    return () => {
+      window.removeEventListener('open-feedback', open);
+      window.removeEventListener('close-feedback', close);
+    };
+  }, []);
+
+  // Broadcast state so nav can toggle its icon
+  useEffect(() => {
+    try {
+      if (isOpen) {
+        window.dispatchEvent(new Event('open-feedback'));
+      } else {
+        window.dispatchEvent(new Event('close-feedback'));
+      }
+    } catch {}
+  }, [isOpen]);
+
+  // Auth guard AFTER hooks to preserve hook order across renders
   if (!user) return null;
 
   const handleSubmit = async (e) => {
@@ -68,30 +92,18 @@ export default function FeedbackButton() {
 
   return (
     <>
+      {/* Hidden floating trigger; modal is opened via 'open-feedback' custom event */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-8 right-8 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-lg hover:bg-[var(--accent-hover)] hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+        className="hidden"
         aria-label="Give feedback"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-          />
-        </svg>
-      </button>
+      />
 
       <Modal
         open={isOpen}
-        onClose={() => !isSubmitting && setIsOpen(false)}
+        onClose={() => {
+          if (!isSubmitting) setIsOpen(false);
+        }}
         title="Share Your Feedback"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
