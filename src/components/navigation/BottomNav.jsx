@@ -90,10 +90,10 @@ export default function BottomNav() {
     return hideOn.some((p) => pathname.startsWith(p));
   }, [pathname]);
 
-  if (hidden) return null;
-
   // Sync icon state with modal via global events
   useEffect(() => {
+    if (hidden) return; // Early return inside the effect if hidden
+    
     const onOpen = () => setFeedbackOpen(true);
     const onClose = () => setFeedbackOpen(false);
     try {
@@ -106,7 +106,7 @@ export default function BottomNav() {
         window.removeEventListener('close-feedback', onClose);
       } catch {}
     };
-  }, []);
+  }, [hidden]);
 
   return (
     <nav
