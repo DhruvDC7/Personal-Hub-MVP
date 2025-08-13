@@ -206,21 +206,21 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col space-y-4 mb-8">
         <h1 className="text-2xl font-bold text-slate-100">Profile</h1>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap gap-2">
           {!isEditing ? (
             <>
               <Button 
                 variant="outline" 
-                className="text-sm px-3 py-1.5 rounded-lg"
+                className="text-sm px-3 py-1.5 rounded-lg flex-shrink-0"
                 onClick={handleLogout}
               >
                 Sign Out
               </Button>
               <Button 
                 onClick={() => setIsEditing(true)}
-                className="text-sm px-3 py-1.5 rounded-lg"
+                className="text-sm px-3 py-1.5 rounded-lg flex-shrink-0"
               >
                 Edit Profile
               </Button>
@@ -247,9 +247,9 @@ export default function ProfilePage() {
         </div>
       </div>
       
-      <div className="flex flex-col md:flex-row gap-8">
+      <div className="flex flex-col md:flex-row gap-8 mt-4">
         {/* Avatar Section */}
-        <div className="flex-shrink-0 flex flex-col items-center space-y-4">
+        <div className="flex-shrink-0 flex flex-col items-center space-y-4 w-full md:w-auto">
           <div className="relative w-32 h-32 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
             {avatarPreview ? (
               <Image
