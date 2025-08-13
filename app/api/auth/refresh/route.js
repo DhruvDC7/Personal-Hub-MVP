@@ -31,15 +31,16 @@ export async function POST(req) {
       const accessToken = signAccess({ userId: payload.userId });
       
       const maxAge = parseExpires(process.env.JWT_EXPIRES_IN || '15m');
+      const isProduction = process.env.NODE_ENV === 'production';
       const headers = {
         'Set-Cookie': [
           `access_token=${encodeURIComponent(accessToken)}`,
           'Path=/',
           'HttpOnly',
           `Max-Age=${maxAge}`,
-          'SameSite=Strict',
-          'Secure'
-        ].join('; ')
+          `SameSite=${isProduction ? 'Strict' : 'Lax'}`,
+          ...(isProduction ? ['Secure'] : []) // Only add Secure in production
+        ].filter(Boolean).join('; ')
       };
       
       return new Response(

@@ -92,20 +92,21 @@ export async function POST(req) {
 
     // 5) Set secure httpOnly cookies
     const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      path: '/',
+    };
+
     const setCookieHeader = [
       serialize('access_token', accessToken, {
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? 'strict' : 'lax',
-        path: '/',
-        maxAge: parseExpires(process.env.JWT_EXPIRES_IN || '15m'), // in seconds
+        ...cookieOptions,
+        maxAge: parseExpires(process.env.JWT_EXPIRES_IN || '15m'),
       }),
       serialize('refresh_token', refreshToken, {
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? 'strict' : 'lax',
-        path: '/',
-        maxAge: parseExpires(process.env.JWT_REFRESH_EXPIRES_IN || '7d'), // in seconds
+        ...cookieOptions,
+        maxAge: parseExpires(process.env.JWT_REFRESH_EXPIRES_IN || '7d'),
       }),
     ];
 
