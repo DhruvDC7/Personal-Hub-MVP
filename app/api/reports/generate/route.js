@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
 import { aiJSONPrompt } from '@/lib/ai';
 import { MongoClientFind } from '@/helpers/mongo';
+import { BANK_TYPE_SYNONYMS, LOAN_TYPE_SYNONYMS, INVESTMENT_TYPE_SYNONYMS } from '@/constants/types';
 
 function monthKey(d) {
   const dt = new Date(d);
@@ -60,9 +61,9 @@ export async function POST(req) {
     });
 
     // Aggregate balances (bank/loan/investment)
-    const loanTypes = new Set(['loan', 'liability', 'credit', 'credit card', 'mortgage']);
-    const bankTypes = new Set(['bank', 'cash', 'savings', 'current', 'checking', 'asset', '']);
-    const investmentTypes = new Set(['investment', 'investments', 'mutual fund', 'mutual funds', 'equity', 'stock', 'stocks', 'sip', 'fd', 'rd', 'bond', 'bonds', 'crypto']);
+    const loanTypes = LOAN_TYPE_SYNONYMS;
+    const bankTypes = BANK_TYPE_SYNONYMS;
+    const investmentTypes = INVESTMENT_TYPE_SYNONYMS;
     const totals = { bank: 0, loan: 0, investment: 0 };
     for (const a of accounts) {
       const bal = Number(a?.balance) || 0;

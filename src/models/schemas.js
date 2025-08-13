@@ -1,15 +1,16 @@
 import Joi from "joi";
+import { ACCOUNT_TYPE_VALUES, TRANSACTION_TYPE_VALUES, CATEGORY_TRANSFER } from "@/constants/types";
 
 export const accountSchema = Joi.object({
   name: Joi.string().trim().min(2).required(),
-  type: Joi.string().valid("bank", "wallet", "investment", "loan").required(),
+  type: Joi.string().valid(...ACCOUNT_TYPE_VALUES).required(),
   currency: Joi.string().trim().default("INR"),
   balance: Joi.number().precision(2).default(0),
   meta: Joi.object().unknown(true).default({}),
 });
 
 export const transactionSchema = Joi.object({
-  type: Joi.string().valid("expense", "income", "transfer").required(),
+  type: Joi.string().valid(...TRANSACTION_TYPE_VALUES).required(),
   // Single-account fields for expense/income
   account_id: Joi.alternatives().conditional('type', {
     is: 'transfer',
@@ -31,7 +32,7 @@ export const transactionSchema = Joi.object({
   currency: Joi.string().trim().default("INR"),
   category: Joi.alternatives().conditional('type', {
     is: 'transfer',
-    then: Joi.string().trim().default('Transfer'),
+    then: Joi.string().trim().default(CATEGORY_TRANSFER),
     otherwise: Joi.string().trim().required(),
   }),
   note: Joi.string().allow("").default(""),

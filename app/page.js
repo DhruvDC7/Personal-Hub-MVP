@@ -9,6 +9,7 @@ import Card from '@/components/Card';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/Button';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { BANK_TYPE_SYNONYMS, LOAN_TYPE_SYNONYMS, INVESTMENT_TYPE_SYNONYMS } from '@/constants/types';
 
 function Dashboard() {
   const [netWorth, setNetWorth] = useState({ networth: 0, currency: 'INR' });
@@ -38,24 +39,10 @@ function Dashboard() {
         if (accountsData.status) {
           setAccounts(accountsData.data);
           setAccountCount(accountsData.data.length);
-          // Compute breakdown: bank, loan, investment
-          const loanTypes = new Set(['loan', 'liability', 'credit', 'credit card', 'mortgage']);
-          const bankTypes = new Set(['bank', 'cash', 'savings', 'current', 'checking']);
-          const investmentTypes = new Set([
-            'investment',
-            'investments',
-            'mutual fund',
-            'mutual funds',
-            'equity',
-            'stock',
-            'stocks',
-            'sip',
-            'fd',
-            'rd',
-            'bond',
-            'bonds',
-            'crypto',
-          ]);
+          // Compute breakdown: bank, loan, investment (centralized sets)
+          const loanTypes = LOAN_TYPE_SYNONYMS;
+          const bankTypes = BANK_TYPE_SYNONYMS;
+          const investmentTypes = INVESTMENT_TYPE_SYNONYMS;
           let bank = 0;
           let loan = 0;
           let investment = 0;

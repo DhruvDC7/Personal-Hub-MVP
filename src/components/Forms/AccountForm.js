@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
 import { Button } from '@/components/ui/Button';
+import { ACCOUNT_TYPE_OPTIONS, ACCOUNT_TYPES } from '@/constants/types';
 
 export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
     name: initialData.name || '',
-    type: initialData.type || 'bank',
+    type: initialData.type || ACCOUNT_TYPES.BANK,
     balance: initialData.balance ?? '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,12 +18,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
 
   // No debug logs needed in production
 
-  const accountTypes = [
-    { value: 'bank', label: 'Bank Account' },
-    { value: 'wallet', label: 'Cash/Wallet' },
-    { value: 'investment', label: 'Investment' },
-    { value: 'loan', label: 'Loan' }
-  ];
+  const accountTypes = ACCOUNT_TYPE_OPTIONS;
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;

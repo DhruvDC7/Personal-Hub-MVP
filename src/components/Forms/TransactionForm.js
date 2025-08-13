@@ -6,13 +6,20 @@ import { api } from '@/lib/fetcher';
 import { CATEGORIES } from '@/constants/categories';
 import { showToast } from '@/lib/ui';
 import { Button } from '@/components/ui/Button';
+import {
+  TRANSACTION_TYPE_OPTIONS,
+  TRANSACTION_TYPES,
+  CATEGORY_TRANSFER,
+  CATEGORY_EMI,
+  typePriority,
+} from '@/constants/types';
 
 export default function TransactionForm({ initialData = {}, onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
     account_id: initialData.account_id || initialData.account?._id || '',
     from_account_id: initialData.from_account_id || '',
     to_account_id: initialData.to_account_id || '',
-    type: initialData.type || 'expense',
+    type: initialData.type || TRANSACTION_TYPES.EXPENSE,
     amount: initialData.amount || '',
     category: initialData.category || '',
     note: initialData.note || '',
@@ -27,10 +34,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
 
   // helpers
   const norm = (s) => (s || '').toString().trim().toLowerCase();
-  const typePriority = (t) => {
-    const order = { bank: 5, cash: 4, wallet: 4, 'credit card': 3, loan: 2, investment: 1, other: 1 };
-    return order[String(t || 'other').toLowerCase()] || 1;
-  };
+  // typePriority imported from constants
   const findAccountByName = (name, list) => {
     const arr = Array.isArray(list) ? list : accounts;
     const query = norm(name);
@@ -95,11 +99,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     }
   };
 
-  const transactionTypes = [
-    { value: 'expense', label: 'Expense' },
-    { value: 'income', label: 'Income' },
-    { value: 'transfer', label: 'Transfer' },
-  ];
+  const transactionTypes = TRANSACTION_TYPE_OPTIONS;
 
   const categories = CATEGORIES;
 
@@ -116,18 +116,18 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         }
 
         // If EMI category is selected but a non-loan account is chosen, try switch to a loan account
-        if (formData.category === 'EMI Payment' && formData.type !== 'transfer') {
+        if (formData.category === CATEGORY_EMI && formData.type !== TRANSACTION_TYPES.TRANSFER) {
           const current = data.find(a => a._id === formData.account_id);
           if (!current || !/\bloan\b/i.test(String(current?.name))) {
             const loanAcc = findLoanAccount(data);
             if (loanAcc) {
-              setFormData(prev => ({ ...prev, account_id: loanAcc._id, type: 'expense' }));
+              setFormData(prev => ({ ...prev, account_id: loanAcc._id, type: TRANSACTION_TYPES.EXPENSE }));
             }
           }
         }
 
         // If transfer type, prefill from/to accounts with sensible defaults
-        if (formData.type === 'transfer' && data.length > 0) {
+        if (formData.type === TRANSACTION_TYPES.TRANSFER && data.length > 0) {
           const fromDefault = formData.from_account_id || data[0]._id;
           // choose a different account for "to" if possible
           const toDefault = formData.to_account_id || (data.find(a => a._id !== fromDefault)?._id || data[0]._id);
@@ -153,13 +153,13 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
 
     // Special handling when switching transaction type
     if (name === 'type') {
-      if (parsedValue === 'transfer') {
+      if (parsedValue === TRANSACTION_TYPES.TRANSFER) {
         // Ensure from/to are prefilled with valid distinct accounts
         const fromDefault = formData.from_account_id || (accounts[0]?._id ?? '');
         const toDefault = formData.to_account_id || (accounts.find(a => a._id !== fromDefault)?._id || fromDefault);
         setFormData(prev => ({
           ...prev,
-          type: 'transfer',
+          type: TRANSACTION_TYPES.TRANSFER,
           from_account_id: fromDefault,
           to_account_id: toDefault,
           // category is controlled later (disabled for transfer)
@@ -177,12 +177,12 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     }
 
     // Special handling when picking EMI category: default to Loan account and expense type
-    if (name === 'category' && parsedValue === 'EMI Payment') {
+    if (name === 'category' && parsedValue === CATEGORY_EMI) {
       const loanAcc = findLoanAccount(accounts);
       setFormData(prev => ({
         ...prev,
-        category: 'EMI Payment',
-        type: 'expense',
+        category: CATEGORY_EMI,
+        type: TRANSACTION_TYPES.EXPENSE,
         account_id: loanAcc?._id || prev.account_id || (accounts[0]?._id ?? ''),
       }));
       return;
@@ -217,9 +217,9 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         next.amount = parsedData.amount;
       }
 
-      if (parsedData.type === 'transfer') {
-        next.type = 'transfer';
-        next.category = 'Transfer';
+      if (parsedData.type === TRANSACTION_TYPES.TRANSFER) {
+        next.type = TRANSACTION_TYPES.TRANSFER;
+        next.category = CATEGORY_TRANSFER;
         // Attempt to map human-readable names to IDs
         const fromName = norm(parsedData.from_account);
         const toName = norm(parsedData.to_account);
@@ -229,18 +229,15 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         next.to_account_id = toAcc?._id || '';
       } else {
         // income/expense
-        if (parsedData.type === 'income' || parsedData.type === 'expense') {
+        if (parsedData.type === TRANSACTION_TYPES.INCOME || parsedData.type === TRANSACTION_TYPES.EXPENSE) {
           next.type = parsedData.type;
         }
         // Keep category if provided and valid; else default
-        const validCategories = [
-          'Food & Drinks','Shopping','Housing','Transportation','Vehicle','Life & Entertainment',
-          'Communication','Financial Expenses','Investments','Salary','Insurance','EMI Payment','Transfer','Other'
-        ];
+        const validCategories = CATEGORIES;
         const aiCat = parsedData.category;
         next.category = validCategories.includes(aiCat) ? aiCat : (next.category || 'Other');
         // ensure account_id default exists
-        if (next.category === 'EMI Payment') {
+        if (next.category === CATEGORY_EMI) {
           // Try to detect transfer if both accounts exist: from bank (e.g., SBI) to loan account (e.g., NAVI Loan)
           let fromName = parsedData.from_account;
           let toName = parsedData.to_account || 'loan';
@@ -280,14 +277,14 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
 
           if (candidateLoan && candidateFrom && candidateLoan._id !== candidateFrom._id) {
             // Convert to transfer
-            next.type = 'transfer';
-            next.category = 'Transfer';
+            next.type = TRANSACTION_TYPES.TRANSFER;
+            next.category = CATEGORY_TRANSFER;
             next.from_account_id = candidateFrom._id;
             next.to_account_id = candidateLoan._id;
           } else {
             // Fallback to expense with a Loan account if available
             const loanAcc = candidateLoan || findLoanAccount(accs);
-            next.type = 'expense';
+            next.type = TRANSACTION_TYPES.EXPENSE;
             // Prefer the source bank account if available to avoid wrong picks like 'sip stock'
             next.account_id = (candidateFrom?._id) || (loanAcc?._id) || next.account_id || accs[0]?._id || '';
           }
@@ -314,17 +311,17 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     try {
       let payload;
 
-      if (formData.type === 'transfer') {
+      if (formData.type === TRANSACTION_TYPES.TRANSFER) {
         const fromAcc = accounts.find(acc => acc._id === formData.from_account_id);
         const toAcc = accounts.find(acc => acc._id === formData.to_account_id);
         if (!fromAcc || !toAcc) throw new Error('Please select valid From and To accounts');
         if (fromAcc._id === toAcc._id) throw new Error('From and To accounts must be different');
         payload = {
-          type: 'transfer',
+          type: TRANSACTION_TYPES.TRANSFER,
           from_account_id: fromAcc._id,
           to_account_id: toAcc._id,
           amount: Number(formData.amount),
-          category: 'Transfer',
+          category: CATEGORY_TRANSFER,
           note: formData.note || '',
         };
       } else {

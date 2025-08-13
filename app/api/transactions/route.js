@@ -11,6 +11,7 @@ import {
   MongoClientDeleteOne,
 } from "@/helpers/mongo";
 import { requireAuth } from "@/middleware/auth";
+import { TRANSACTION_TYPES, CATEGORY_TRANSFER, ACCOUNT_TYPES } from "@/constants/types";
 
 const toObjectId = (id) => id;
 
@@ -78,7 +79,7 @@ export async function POST(req) {
     };
 
     // Same-currency only logic for transfers
-    if (value.type === 'transfer') {
+    if (value.type === TRANSACTION_TYPES.TRANSFER) {
       const { from_account_id, to_account_id, amount, currency } = value;
       if (from_account_id === to_account_id) {
         return new Response(errorObject("From and To accounts must differ", 400), { status: 400 });
@@ -107,8 +108,8 @@ export async function POST(req) {
       // Default transfer: decrement from, increment to
       let fromDelta = -amount;
       let toDelta = +amount;
-      const isFromLoan = String(fromAcc.type).toLowerCase() === 'loan';
-      const isToLoan = String(toAcc.type).toLowerCase() === 'loan';
+      const isFromLoan = String(fromAcc.type).toLowerCase() === ACCOUNT_TYPES.LOAN;
+      const isToLoan = String(toAcc.type).toLowerCase() === ACCOUNT_TYPES.LOAN;
 
       // Loan semantics:
       // - Repayment (to loan): cash down, loan down
@@ -129,12 +130,12 @@ export async function POST(req) {
 
       const doc = {
         ...baseDoc,
-        type: 'transfer',
+        type: TRANSACTION_TYPES.TRANSFER,
         from_account_id,
         to_account_id,
         amount,
         currency: fromCur,
-        category: value.category || 'Transfer',
+        category: value.category || CATEGORY_TRANSFER,
         note: value.note || '',
         tags: value.tags || [],
         attachment_ids: value.attachment_ids || [],
@@ -222,7 +223,7 @@ export async function PUT(req) {
     }
 
     // Block edits for transfer transactions (not supported in this version)
-    if (existing.type === 'transfer' || type === 'transfer') {
+    if (existing.type === TRANSACTION_TYPES.TRANSFER || type === TRANSACTION_TYPES.TRANSFER) {
       return new Response(errorObject("Editing transfers is not supported", 400), { status: 400 });
     }
 
@@ -345,7 +346,7 @@ export async function DELETE(req) {
     }
 
     // Update account balance (reverse effects)
-    if (existing.type === 'transfer') {
+    if (existing.type === TRANSACTION_TYPES.TRANSFER) {
       // Reverse transfer deltas based on current account types
       const [fromRes, toRes] = await Promise.all([
         MongoClientFindOne("accounts", { _id: existing.from_account_id, user_id: userId }),
@@ -353,8 +354,8 @@ export async function DELETE(req) {
       ]);
       const fromAcc = fromRes?.data || {};
       const toAcc = toRes?.data || {};
-      const isFromLoan = String(fromAcc.type || '').toLowerCase() === 'loan';
-      const isToLoan = String(toAcc.type || '').toLowerCase() === 'loan';
+      const isFromLoan = String(fromAcc.type || '').toLowerCase() === ACCOUNT_TYPES.LOAN;
+      const isToLoan = String(toAcc.type || '').toLowerCase() === ACCOUNT_TYPES.LOAN;
 
       // Original deltas in POST:
       // default: from -amount, to +amount

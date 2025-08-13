@@ -12,6 +12,7 @@ import TransactionForm from '@/components/Forms/TransactionForm';
 import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { LoadingBlock } from '@/components/ui/LoadingSpinner';
+import { TRANSACTION_TYPES } from '@/constants/types';
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -91,9 +92,9 @@ export default function TransactionsPage() {
   // Calculate totals (ignore transfers)
   const { totalIncome, totalExpense } = transactions.reduce(
     (acc, txn) => {
-      if (txn.type === 'income') {
+      if (txn.type === TRANSACTION_TYPES.INCOME) {
         acc.totalIncome += txn.amount;
-      } else if (txn.type === 'expense') {
+      } else if (txn.type === TRANSACTION_TYPES.EXPENSE) {
         acc.totalExpense += txn.amount;
       }
       return acc;
@@ -119,7 +120,7 @@ export default function TransactionsPage() {
     { 
       key: 'account', 
       header: 'Account',
-      render: (txn) => txn.type === 'transfer'
+      render: (txn) => txn.type === TRANSACTION_TYPES.TRANSFER
         ? `${nameById(txn.from_account_id)} → ${nameById(txn.to_account_id)}`
         : nameById(txn.account_id)
     },
@@ -127,14 +128,14 @@ export default function TransactionsPage() {
       key: 'amount', 
       header: 'Amount',
       render: (txn) => {
-        if (txn.type === 'transfer') {
+        if (txn.type === TRANSACTION_TYPES.TRANSFER) {
           return (
             <span className="text-slate-300">{formatINR(txn.amount)}</span>
           );
         }
         return (
-          <span className={txn.type === 'income' ? 'text-green-600' : 'text-red-600'}>
-            {txn.type === 'income' ? '+' : '-'}{formatINR(txn.amount)}
+          <span className={txn.type === TRANSACTION_TYPES.INCOME ? 'text-green-600' : 'text-red-600'}>
+            {txn.type === TRANSACTION_TYPES.INCOME ? '+' : '-'}{formatINR(txn.amount)}
           </span>
         );
       }
@@ -152,8 +153,8 @@ export default function TransactionsPage() {
             variant="ghost"
             size="sm"
             className="text-sky-400 hover:bg-sky-500/10"
-            disabled={txn.type === 'transfer'}
-            title={txn.type === 'transfer' ? 'Editing transfers is not supported' : 'Edit'}
+            disabled={txn.type === TRANSACTION_TYPES.TRANSFER}
+            title={txn.type === TRANSACTION_TYPES.TRANSFER ? 'Editing transfers is not supported' : 'Edit'}
           >
             Edit
           </Button>
@@ -219,9 +220,9 @@ export default function TransactionsPage() {
               className="mt-1 block w-full rounded-md bg-slate-900 border border-slate-700 text-slate-50 py-2 pl-3 pr-10 text-base focus:border-sky-400 focus:outline-none focus:ring-sky-400 sm:text-sm"
             >
               <option value="">All Types</option>
-              <option value="income">Income</option>
-              <option value="expense">Expense</option>
-              <option value="transfer">Transfer</option>
+              <option value={TRANSACTION_TYPES.INCOME}>Income</option>
+              <option value={TRANSACTION_TYPES.EXPENSE}>Expense</option>
+              <option value={TRANSACTION_TYPES.TRANSFER}>Transfer</option>
             </select>
           </div>
           
