@@ -1,4 +1,5 @@
 import { verifyToken, signAccess, parseExpires } from '@/lib/jwt';
+import log from '@/helpers/logs';
 
 // Simple cookie parser for Next.js 13+ route handlers
 const parseCookies = (cookieHeader = '') => {
@@ -17,7 +18,13 @@ export async function POST(req) {
     const cookies = parseCookies(cookieHeader);
     const token = cookies.refresh_token;
     
+    await log(req, 'Refresh token request started', 'info', {
+      hasRefreshToken: !!token,
+      cookieKeys: Object.keys(cookies)
+    });
+    
     if (!token) {
+      await log(req, 'No refresh token provided', 'error');
       return new Response(JSON.stringify({ 
         error: 'No refresh token provided'
       }), { 
@@ -28,10 +35,20 @@ export async function POST(req) {
     
     try {
       const payload = verifyToken(token);
-      const accessToken = signAccess({ userId: payload.userId });
+      await log(req, 'Refresh token verified', 'info', {
+        userId: payload.userId,
+        tokenExp: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'N/A'
+      });
       
+      const accessToken = signAccess({ userId: payload.userId });
       const maxAge = parseExpires(process.env.JWT_EXPIRES_IN || '15m');
       const isProduction = process.env.NODE_ENV === 'production';
+      
+      await log(req, 'New access token generated', 'info', {
+        tokenLength: accessToken?.length || 0,
+        maxAge,
+        isProduction
+      });
       const headers = {
         'Set-Cookie': [
           `access_token=${encodeURIComponent(accessToken)}`,
@@ -43,11 +60,16 @@ export async function POST(req) {
         ].filter(Boolean).join('; ')
       };
       
+      const responseData = { 
+        ok: true,
+        expiresIn: maxAge,
+        tokenRefreshed: true
+      };
+      
+      await log(req, 'Token refresh successful', 'success', responseData);
+      
       return new Response(
-        JSON.stringify({ 
-          ok: true,
-          expiresIn: maxAge
-        }), 
+        JSON.stringify(responseData), 
         { 
           status: 200, 
           headers: {
@@ -58,9 +80,16 @@ export async function POST(req) {
       );
       
     } catch (error) {
+      await log(req, 'Token verification failed', 'error', {
+        error: error.message,
+        errorName: error.name,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+      
       return new Response(
         JSON.stringify({ 
-          error: 'Invalid or expired refresh token'
+          error: 'Invalid or expired refresh token',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
         }), 
         { 
           status: 401,
@@ -70,11 +99,16 @@ export async function POST(req) {
     }
     
   } catch (error) {
-    console.error('Unexpected error in refresh token endpoint:', error);
+    await log(req, 'Unexpected error in refresh endpoint', 'error', {
+      error: error.message,
+      errorName: error.name,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
     
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       }), 
       { 
         status: 500,
