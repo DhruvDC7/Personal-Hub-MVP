@@ -25,86 +25,77 @@ function Dashboard() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch net worth data
-      const netWorthResponse = await fetch('/api/metrics/networth', { cache: 'no-store' });
-      if (!netWorthResponse.ok) {
-        throw new Error(`HTTP error! status: ${netWorthResponse.status}`);
-      }
-      const netWorthData = await netWorthResponse.json();
-      // Set net worth immediately so later failures don't block it
-      if (netWorthData.status) {
-        setNetWorth(netWorthData.data);
-      }
-      
-      // Fetch accounts data early to compute breakdown
-      const accountsResponse = await fetch('/api/accounts', { cache: 'no-store' });
-      if (!accountsResponse.ok) {
-        throw new Error(`HTTP error! status: ${accountsResponse.status}`);
-      }
-      const accountsData = await accountsResponse.json();
-      if (accountsData.status) {
-        setAccounts(accountsData.data);
-        setAccountCount(accountsData.data.length);
-        // Compute breakdown: bank, loan, investment
-        const loanTypes = new Set(['loan', 'liability', 'credit', 'credit card', 'mortgage']);
-        const bankTypes = new Set(['bank', 'cash', 'savings', 'current', 'checking']);
-        const investmentTypes = new Set([
-          'investment',
-          'investments',
-          'mutual fund',
-          'mutual funds',
-          'equity',
-          'stock',
-          'stocks',
-          'sip',
-          'fd',
-          'rd',
-          'bond',
-          'bonds',
-          'crypto',
-        ]);
-        let bank = 0;
-        let loan = 0;
-        let investment = 0;
-        for (const a of accountsData.data) {
-          const balance = Number(a?.balance) || 0;
-          const type = String(a?.type || '').trim().toLowerCase();
-          if (loanTypes.has(type)) {
-            loan += Math.abs(balance);
-          } else if (investmentTypes.has(type)) {
-            investment += balance;
-          } else if (bankTypes.has(type) || type === '' || type === 'asset') {
-            bank += balance;
-          } else {
-            // Fallback: treat unknown as bank-like asset
-            bank += balance;
+      // Fetch accounts, transactions, and documents in parallel
+      const [accountsRes, transactionsRes, documentsRes] = await Promise.allSettled([
+        fetch('/api/accounts', { cache: 'no-store' }),
+        fetch('/api/transactions?limit=25&sort=created_on', { cache: 'no-store' }),
+        fetch('/api/documents', { cache: 'no-store' }),
+      ]);
+
+      // Accounts: compute breakdown and derive net worth
+      if (accountsRes.status === 'fulfilled' && accountsRes.value.ok) {
+        const accountsData = await accountsRes.value.json();
+        if (accountsData.status) {
+          setAccounts(accountsData.data);
+          setAccountCount(accountsData.data.length);
+          // Compute breakdown: bank, loan, investment
+          const loanTypes = new Set(['loan', 'liability', 'credit', 'credit card', 'mortgage']);
+          const bankTypes = new Set(['bank', 'cash', 'savings', 'current', 'checking']);
+          const investmentTypes = new Set([
+            'investment',
+            'investments',
+            'mutual fund',
+            'mutual funds',
+            'equity',
+            'stock',
+            'stocks',
+            'sip',
+            'fd',
+            'rd',
+            'bond',
+            'bonds',
+            'crypto',
+          ]);
+          let bank = 0;
+          let loan = 0;
+          let investment = 0;
+          for (const a of accountsData.data) {
+            const balance = Number(a?.balance) || 0;
+            const type = String(a?.type || '').trim().toLowerCase();
+            if (loanTypes.has(type)) {
+              loan += Math.abs(balance);
+            } else if (investmentTypes.has(type)) {
+              investment += balance;
+            } else if (bankTypes.has(type) || type === '' || type === 'asset') {
+              bank += balance;
+            } else {
+              // Fallback: treat unknown as bank-like asset
+              bank += balance;
+            }
           }
+          setAccountBreakdown({ bank, loan, investment });
+          // Derive net worth from accounts (assets - liabilities)
+          setNetWorth({ networth: bank + investment - loan, currency: 'INR' });
         }
-        setAccountBreakdown({ bank, loan, investment });
       }
 
-      // Fetch recent transactions (for list only)
-      const transactionsResponse = await fetch('/api/transactions?limit=25&sort=created_on', { cache: 'no-store' });
-      if (!transactionsResponse.ok) {
-        throw new Error(`HTTP error! status: ${transactionsResponse.status}`);
+      // Transactions list
+      if (transactionsRes.status === 'fulfilled' && transactionsRes.value.ok) {
+        const transactionsData = await transactionsRes.value.json();
+        const txns = transactionsData?.data || [];
+        setRecentTransactions(txns);
       }
-      const transactionsData = await transactionsResponse.json();
-      
-      // Fetch documents count
-      const documentsResponse = await fetch('/api/documents', { cache: 'no-store' });
-      if (!documentsResponse.ok) {
-        throw new Error(`HTTP error! status: ${documentsResponse.status}`);
+
+      // Documents count
+      if (documentsRes.status === 'fulfilled' && documentsRes.value.ok) {
+        const documentsData = await documentsRes.value.json();
+        if (documentsData?.success && Array.isArray(documentsData.data)) {
+          setDocumentCount(documentsData.data.length || 0);
+        } else if (Array.isArray(documentsData?.data)) {
+          // Fallback if API shape differs
+          setDocumentCount(documentsData.data.length);
+        }
       }
-      const documentsData = await documentsResponse.json();
-      
-      
-      
-      if (documentsData.success) {
-        setDocumentCount(documentsData.data.length || 0);
-      }
-      
-      const txns = transactionsData.data || [];
-      setRecentTransactions(txns);
     } catch (error) {
       // You might want to show an error toast here
     } finally {
