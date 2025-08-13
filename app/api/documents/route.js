@@ -29,6 +29,7 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const projectionParam = searchParams.get('projection');
     
     // If ID is provided, return the specific file
     if (id) {
@@ -53,20 +54,30 @@ export async function GET(req) {
       return res;
     }
     
-    // If no ID, return list of all documents
+    // If no ID, return list of all documents (with optional projection)
     const bucket = await getGridFSBucket();
-    const files = await bucket.find({}).toArray();
+    const findOptions = {};
+    const projectIdsOnly = projectionParam === 'id' || projectionParam === '_id';
+    if (projectIdsOnly) {
+      findOptions.projection = { _id: 1 };
+    }
+    const files = await bucket.find({}, findOptions).toArray();
     
     // Transform files to include necessary metadata
-    const documents = files.map(file => ({
-      id: file._id.toString(),
-      filename: file.filename,
-      title: file.metadata?.title || file.filename,
-      contentType: file.contentType,
-      size: file.length,
-      uploadedAt: file.uploadDate,
-      metadata: file.metadata || {}
-    }));
+    const documents = files.map(file => {
+      if (projectIdsOnly) {
+        return { id: file._id.toString() };
+      }
+      return {
+        id: file._id.toString(),
+        filename: file.filename,
+        title: file.metadata?.title || file.filename,
+        contentType: file.contentType,
+        size: file.length,
+        uploadedAt: file.uploadDate,
+        metadata: file.metadata || {}
+      };
+    });
     
     return json({ 
       success: true, 

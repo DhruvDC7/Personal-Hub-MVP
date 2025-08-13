@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
-import { CATEGORIES } from '@/constants/categories';
+import { CATEGORIES } from '@/constants/types';
 import { showToast } from '@/lib/ui';
 import { Button } from '@/components/ui/Button';
 import {
@@ -236,7 +236,13 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         const validCategories = CATEGORIES;
         const aiCat = parsedData.category;
         next.category = validCategories.includes(aiCat) ? aiCat : (next.category || 'Other');
-        // ensure account_id default exists
+        // Map AI from_account to a real account for regular expense/income
+        if (parsedData.from_account) {
+          const fromAcc = findAccountByName(parsedData.from_account, accs);
+          if (fromAcc?._id) {
+            next.account_id = fromAcc._id;
+          }
+        }
         if (next.category === CATEGORY_EMI) {
           // Try to detect transfer if both accounts exist: from bank (e.g., SBI) to loan account (e.g., NAVI Loan)
           let fromName = parsedData.from_account;

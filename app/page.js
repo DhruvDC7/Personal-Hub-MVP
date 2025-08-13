@@ -30,7 +30,7 @@ function Dashboard() {
       const [accountsRes, transactionsRes, documentsRes] = await Promise.allSettled([
         fetch('/api/accounts', { cache: 'no-store' }),
         fetch('/api/transactions?limit=25&sort=created_on', { cache: 'no-store' }),
-        fetch('/api/documents', { cache: 'no-store' }),
+        fetch('/api/documents?projection=id', { cache: 'no-store' }),
       ]);
 
       // Accounts: compute breakdown and derive net worth

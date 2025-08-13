@@ -1,5 +1,5 @@
 import { requireAuth } from '@/middleware/auth';
-import { CATEGORIES } from '@/constants/categories';
+import { CATEGORIES, BANK_NAME_KEYWORDS, looksLikeInvestmentName, normalizeAccountDisplayName } from '@/constants/types';
 import { aiJSONPrompt } from '@/lib/ai';
 
 export async function POST(req) {
@@ -61,7 +61,24 @@ UserContext: ${JSON.stringify({ userId })}
       const n = Number(String(out.amount).replace(/[\,\s]/g, ''));
       if (!Number.isNaN(n)) out.amount = n;
     }
-
+    // Prefer explicit account names mentioned in the note over generic/AI guesses
+    // Example: if note contains a bank keyword but model guessed an investment-like name, prefer the bank.
+    try {
+      const bankRegex = new RegExp(`\\b(${BANK_NAME_KEYWORDS.join('|')})\\b`, 'i');
+      const explicitAccountMatch = lowerNote.match(bankRegex);
+      if (explicitAccountMatch) {
+        const explicit = normalizeAccountDisplayName(explicitAccountMatch[1]);
+        if (!out.from_account || looksLikeInvestmentName(out.from_account)) {
+          out.from_account = explicit;
+        }
+        // Also fix to_account if it's an investment-like guess but note explicitly mentions a bank
+        if (looksLikeInvestmentName(out.to_account)) {
+          out.to_account = explicit;
+        }
+      }
+    } catch (_) {
+      // no-op fallback if regex build fails
+    }
     return new Response(JSON.stringify(out), { status: 200 });
 
   } catch (error) {

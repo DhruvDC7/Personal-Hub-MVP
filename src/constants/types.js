@@ -21,6 +21,24 @@ export const TRANSACTION_TYPES = {
 export const CATEGORY_TRANSFER = 'Transfer';
 export const CATEGORY_EMI = 'EMI Payment';
 
+// Canonical list of categories (moved from categories.js)
+export const CATEGORIES = [
+  'Food & Drinks',
+  'Shopping',
+  'Housing',
+  'Transportation',
+  'Vehicle',
+  'Life & Entertainment',
+  'Communication',
+  'Financial Expenses',
+  'Investments',
+  'Salary',
+  'Insurance',
+  'EMI Payment',
+  'Transfer',
+  'Other',
+];
+
 // Arrays for validation/selects
 export const ACCOUNT_TYPE_VALUES = [
   ACCOUNT_TYPES.BANK,
@@ -95,3 +113,38 @@ export function normalizeTransactionType(t) {
   if (s === TRANSACTION_TYPES.INCOME) return TRANSACTION_TYPES.INCOME;
   return TRANSACTION_TYPES.EXPENSE;
 }
+
+// ---- Name keyword sets and helpers (for matching/normalization) ----
+export const BANK_NAME_KEYWORDS = [
+  'sbi', 'hdfc', 'icici', 'axis', 'kotak', 'bob', 'bank of baroda', 'pnb',
+  'idfc first', 'idfc', 'yes bank', 'canara', 'union bank', 'indusind',
+];
+
+export const INVESTMENT_NAME_KEYWORDS = [
+  'sip', 'stock', 'stocks', 'mutual', 'mf', 'equity', 'fund',
+];
+
+export const ACCOUNT_NAME_NORMALIZATION_MAP = {
+  'sbi': 'SBI',
+  'hdfc': 'HDFC',
+  'icici': 'ICICI',
+  'axis': 'AXIS',
+  'kotak': 'KOTAK',
+  'pnb': 'PNB',
+  'bob': 'BOB',
+  'idfc': 'IDFC',
+  'idfc first': 'IDFC First',
+};
+
+export const normalizeAccountDisplayName = (s) => {
+  const t = String(s || '').trim();
+  const key = t.toLowerCase();
+  if (ACCOUNT_NAME_NORMALIZATION_MAP[key]) return ACCOUNT_NAME_NORMALIZATION_MAP[key];
+  if (t.length <= 5) return t.toUpperCase();
+  return t.replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+export const looksLikeInvestmentName = (s) => {
+  const re = new RegExp(`\\b(${INVESTMENT_NAME_KEYWORDS.join('|')})\\b`, 'i');
+  return re.test(String(s || ''));
+};
