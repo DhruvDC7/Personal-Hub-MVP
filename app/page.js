@@ -29,7 +29,7 @@ function Dashboard() {
       // Fetch accounts, transactions, and documents in parallel
       const [accountsRes, transactionsRes, documentsRes] = await Promise.allSettled([
         fetch('/api/accounts', { cache: 'no-store' }),
-        fetch('/api/transactions?limit=25&sort=created_on', { cache: 'no-store' }),
+        fetch('/api/transactions?limit=5&sort=created_on', { cache: 'no-store' }),
         fetch('/api/documents?projection=id', { cache: 'no-store' }),
       ]);
 
