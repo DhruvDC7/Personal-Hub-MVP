@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
 import { CATEGORIES } from '@/constants/types';
@@ -31,6 +31,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   const [isParsing, setIsParsing] = useState(false);
   const [isFormVisible, setIsFormVisible] = useState(true);
   const router = useRouter();
+  const fetchedAccountsOnceRef = useRef(false);
 
   // helpers
   const norm = (s) => (s || '').toString().trim().toLowerCase();
@@ -104,48 +105,66 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   const categories = CATEGORIES;
 
   useEffect(() => {
+    let cancelled = false;
     const fetchAccounts = async () => {
       try {
+        // Guard to avoid duplicate fetches (e.g., React StrictMode double-invoke)
+        if (fetchedAccountsOnceRef.current) return;
+        fetchedAccountsOnceRef.current = true;
         const data = await api('/api/accounts');
-        setAccounts(data);
-
-        // If no account is selected, select the first one by default (or Loan for EMI)
-        if (!formData.account_id && data.length > 0) {
-          const loanAcc = formData.category === 'EMI Payment' ? findLoanAccount(data) : null;
-          setFormData(prev => ({ ...prev, account_id: (loanAcc?._id || data[0]._id) }));
-        }
-
-        // If EMI category is selected but a non-loan account is chosen, try switch to a loan account
-        if (formData.category === CATEGORY_EMI && formData.type !== TRANSACTION_TYPES.TRANSFER) {
-          const current = data.find(a => a._id === formData.account_id);
-          if (!current || !/\bloan\b/i.test(String(current?.name))) {
-            const loanAcc = findLoanAccount(data);
-            if (loanAcc) {
-              setFormData(prev => ({ ...prev, account_id: loanAcc._id, type: TRANSACTION_TYPES.EXPENSE }));
-            }
-          }
-        }
-
-        // If transfer type, prefill from/to accounts with sensible defaults
-        if (formData.type === TRANSACTION_TYPES.TRANSFER && data.length > 0) {
-          const fromDefault = formData.from_account_id || data[0]._id;
-          // choose a different account for "to" if possible
-          const toDefault = formData.to_account_id || (data.find(a => a._id !== fromDefault)?._id || data[0]._id);
-          setFormData(prev => ({
-            ...prev,
-            from_account_id: fromDefault,
-            to_account_id: toDefault,
-          }));
-        }
+        if (!cancelled) setAccounts(data);
       } catch (error) {
         // Error handled by the UI state
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     fetchAccounts();
-  }, [formData.account_id]);
+    return () => { cancelled = true; };
+  }, []);
+
+  // After accounts load or when related fields change, set sensible defaults without causing re-fetch loops
+  useEffect(() => {
+    if (!accounts || accounts.length === 0) return;
+    setFormData(prev => {
+      let next = { ...prev };
+      let changed = false;
+
+      // If no account is selected, select the first one by default (or Loan for EMI)
+      if (!prev.account_id) {
+        const loanAcc = prev.category === 'EMI Payment' ? findLoanAccount(accounts) : null;
+        next.account_id = (loanAcc?._id || accounts[0]._id);
+        changed = true;
+      }
+
+      // If EMI category is selected but a non-loan account is chosen, try switch to a loan account
+      if (prev.category === CATEGORY_EMI && prev.type !== TRANSACTION_TYPES.TRANSFER) {
+        const current = accounts.find(a => a._id === prev.account_id);
+        if (!current || !/\bloan\b/i.test(String(current?.name))) {
+          const loanAcc = findLoanAccount(accounts);
+          if (loanAcc) {
+            next.account_id = loanAcc._id;
+            next.type = TRANSACTION_TYPES.EXPENSE;
+            changed = true;
+          }
+        }
+      }
+
+      // If transfer type, prefill from/to accounts with sensible defaults
+      if (prev.type === TRANSACTION_TYPES.TRANSFER && accounts.length > 0) {
+        const fromDefault = prev.from_account_id || accounts[0]._id;
+        const toDefault = prev.to_account_id || (accounts.find(a => a._id !== fromDefault)?._id || accounts[0]._id);
+        if (prev.from_account_id !== fromDefault || prev.to_account_id !== toDefault) {
+          next.from_account_id = fromDefault;
+          next.to_account_id = toDefault;
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [accounts, formData.category, formData.type]);
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
