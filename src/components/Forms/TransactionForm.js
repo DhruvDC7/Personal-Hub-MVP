@@ -201,13 +201,14 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     }
     setIsParsing(true);
     try {
+      // Ensure we have accounts available before calling AI, so we can send them for grounding
+      const accs = accounts && accounts.length ? accounts : await api('/api/accounts');
+      const compactAccounts = (Array.isArray(accs) ? accs : []).map(a => ({ name: String(a?.name || ''), type: String(a?.type || '') }));
+
       const parsedData = await api('/api/transactions/parse-with-ai', {
         method: 'POST',
-        body: { note: aiNote },
+        body: { note: aiNote, accounts: compactAccounts, category: formData.category || '' },
       });
-
-      // Ensure we have accounts available for mapping
-      const accs = accounts && accounts.length ? accounts : await api('/api/accounts');
 
       // Normalize and map AI output
       const next = { ...formData };
