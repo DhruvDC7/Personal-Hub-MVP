@@ -6,17 +6,19 @@ import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { showToast } from '@/lib/ui';
 import Image from 'next/image';
+import { useAvatar } from '@/hooks/useAvatar';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
+  const { avatarUrl, refreshAvatar, clearAvatarCache } = useAvatar(user);
   const [profile, setProfile] = useState({
     name: '',
     email: '',
     phone: '',
     address: ''
   });
-  const [avatar, setAvatar] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatar, setAvatar] = useState(null); // local unsaved file
+  const [avatarPreview, setAvatarPreview] = useState(''); // local preview override when selecting a new file
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -25,11 +27,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const [profileRes, avatarRes] = await Promise.all([
-          fetch('/api/me'),
-          fetch('/api/me/avatar')
-        ]);
-
+        const profileRes = await fetch('/api/me');
         if (profileRes.ok) {
           const data = await profileRes.json();
           setProfile(prev => ({
@@ -39,12 +37,6 @@ export default function ProfilePage() {
             phone: data.user?.phone || '',
             address: data.user?.address || ''
           }));
-        }
-
-        if (avatarRes.ok) {
-          const avatarBlob = await avatarRes.blob();
-          const avatarUrl = URL.createObjectURL(avatarBlob);
-          setAvatarPreview(avatarUrl);
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -58,7 +50,7 @@ export default function ProfilePage() {
       fetchProfile();
     }
 
-    // Cleanup function to revoke object URL
+    // Cleanup function to revoke local object URL for unsaved preview
     return () => {
       if (avatarPreview) {
         URL.revokeObjectURL(avatarPreview);
@@ -96,6 +88,8 @@ export default function ProfilePage() {
   const handleRemoveAvatar = () => {
     setAvatar(null);
     setAvatarPreview('');
+    // Optimistically clear cache so Navbar reflects removal after save
+    clearAvatarCache();
   };
 
   const handleSubmit = async (e) => {
@@ -138,6 +132,8 @@ export default function ProfilePage() {
       if (profileOk && avatarOk) {
         setIsEditing(false);
         showToast({ type: 'success', message: 'Profile updated successfully' });
+        // Refresh cached avatar (in Navbar and elsewhere)
+        refreshAvatar(true);
       } else {
         const errors = [];
         if (!profileOk) errors.push('profile');

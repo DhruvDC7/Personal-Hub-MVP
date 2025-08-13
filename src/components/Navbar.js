@@ -5,11 +5,12 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { useAvatar } from '@/hooks/useAvatar';
 
 export default function Navbar() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const { avatarUrl } = useAvatar(user);
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard' },
@@ -17,28 +18,7 @@ export default function Navbar() {
     { name: 'Transactions', path: '/transactions' },
     { name: 'Documents', path: '/documents' },
   ];
-  // Load avatar once on mount and when user changes
-  useEffect(() => {
-    let revoked = false;
-    let objectUrl = '';
-    async function loadAvatar() {
-      try {
-        if (!user) { setAvatarUrl(''); return; }
-        const res = await fetch('/api/me/avatar');
-        if (!res.ok) { setAvatarUrl(''); return; }
-        const blob = await res.blob();
-        objectUrl = URL.createObjectURL(blob);
-        if (!revoked) setAvatarUrl(objectUrl);
-      } catch {
-        setAvatarUrl('');
-      }
-    }
-    loadAvatar();
-    return () => {
-      revoked = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [user]);
+  // Avatar is managed and cached by useAvatar
   
 
   return (

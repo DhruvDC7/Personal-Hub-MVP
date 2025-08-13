@@ -18,7 +18,7 @@ function Dashboard() {
   const [accounts, setAccounts] = useState([]);
   const [documentCount, setDocumentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, fetchWithAuth } = useAuth();
   // Breakdown by account balances
   const [accountBreakdown, setAccountBreakdown] = useState({ bank: 0, loan: 0, investment: 0 });
   const [generatingReport, setGeneratingReport] = useState(false);
@@ -28,9 +28,9 @@ function Dashboard() {
     try {
       // Fetch accounts, transactions, and documents in parallel
       const [accountsRes, transactionsRes, documentsRes] = await Promise.allSettled([
-        fetch('/api/accounts', { cache: 'no-store' }),
-        fetch('/api/transactions?limit=5&sort=created_on', { cache: 'no-store' }),
-        fetch('/api/documents?projection=id', { cache: 'no-store' }),
+        fetchWithAuth('/api/accounts', { cache: 'no-store' }),
+        fetchWithAuth('/api/transactions?limit=5&sort=created_on', { cache: 'no-store' }),
+        fetchWithAuth('/api/documents?projection=id', { cache: 'no-store' }),
       ]);
 
       // Accounts: compute breakdown and derive net worth
