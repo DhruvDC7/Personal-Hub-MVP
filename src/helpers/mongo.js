@@ -72,13 +72,15 @@ export const MongoClientFindOne = async (collection, query = {}, options = {}) =
         }
         
         const data = await db.collection(collection).findOne(query, options);
-        
+        const found = !!data;
+
         return {
-            status: !!data,
+            status: true, // success even when not found; callers can check `found`
             mode: "find",
             data: data || {},
             id: data?._id || "",
-            message: data ? "Record found." : "No record found."
+            found,
+            message: found ? "Record found." : "No record found."
         };
     } catch (e) {
         return {
@@ -115,13 +117,15 @@ export const MongoClientFind = async (collection, query = {}, options = {}) => {
         }
         
         const data = await db.collection(collection).find(query, options).toArray();
-        
+        const found = Array.isArray(data) && data.length > 0;
+
         return {
-            status: data.length > 0,
+            status: true, // success even when empty; callers can check `found` or data.length
             mode: "find",
             data,
             id: 1,
-            message: data.length > 0 ? "Records found." : "No records found."
+            found,
+            message: found ? "Records found." : "No records found."
         };
     } catch (e) {
         return {

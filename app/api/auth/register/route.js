@@ -23,8 +23,8 @@ export async function POST(req) {
       return new Response(JSON.stringify({ error: error.message }), { status: 400 });
     }
     const email = value.email.toLowerCase();
-    const { status } = await MongoClientFindOne('users', { email });
-    if (status) {
+    const { found } = await MongoClientFindOne('users', { email });
+    if (found) {
       return new Response(JSON.stringify({ error: 'Email already registered' }), { status: 409 });
     }
     const hash = await bcrypt.hash(value.password, 10);

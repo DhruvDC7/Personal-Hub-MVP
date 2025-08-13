@@ -19,11 +19,11 @@ export async function GET(req) {
     }
 
     // 2. Fetch user data
-    const { status, data } = await MongoClientFindOne('users', { 
+    const { found, data } = await MongoClientFindOne('users', { 
       _id: ObjectId.isValid(userId) ? new ObjectId(userId) : userId 
     });
 
-    if (!status || !data) {
+    if (!found) {
       const error = new Error('User not found');
       error.status = 404;
       throw error;
@@ -95,7 +95,7 @@ export async function PUT(req) {
       _id: ObjectId.isValid(userId) ? new ObjectId(userId) : userId,
     });
 
-    if (!findResult.status || !findResult.data) {
+    if (!findResult.found) {
       const error = new Error('Failed to load updated user');
       error.status = 500;
       throw error;

@@ -310,6 +310,17 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* Empty state for zero accounts */}
+      {accountCount === 0 && (
+        <Card>
+          <div className="text-center py-6">
+            <p className="text-slate-300 mb-2">No accounts yet</p>
+            <p className="text-slate-400 text-sm mb-4">Add your first account to start tracking balances and transactions.</p>
+            <Button as={Link} href="/accounts" variant="primary">Add Your First Account</Button>
+          </div>
+        </Card>
+      )}
+
       {/* Balance + Donut */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card>

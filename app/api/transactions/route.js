@@ -90,10 +90,10 @@ export async function POST(req) {
         MongoClientFindOne("accounts", { _id: from_account_id, user_id: userId }),
         MongoClientFindOne("accounts", { _id: to_account_id, user_id: userId }),
       ]);
-      if (!fromRes.status || !fromRes.data) {
+      if (!fromRes.found) {
         return new Response(errorObject("From account not found", 404), { status: 404 });
       }
-      if (!toRes.status || !toRes.data) {
+      if (!toRes.found) {
         return new Response(errorObject("To account not found", 404), { status: 404 });
       }
       const fromAcc = fromRes.data;
@@ -213,12 +213,12 @@ export async function PUT(req) {
     }
 
     // Verify transaction exists
-    const { status: existingStatus, data: existing } = await MongoClientFindOne(
+    const { found: existingFound, data: existing } = await MongoClientFindOne(
       "transactions",
       { _id: toObjectId(txId.toString()), user_id: userId }
     );
     
-    if (!existingStatus || !existing) {
+    if (!existingFound) {
       return new Response(errorObject("Transaction not found", 404), { status: 404 });
     }
 
@@ -249,12 +249,12 @@ export async function PUT(req) {
 
     // Validate account ownership if changed
     const newAccountId = set.account_id ? set.account_id : existing.account_id;
-    const { status: accStatus, data: acc } = await MongoClientFindOne(
+    const { found: accFound, data: acc } = await MongoClientFindOne(
       "accounts",
       { _id: toObjectId(newAccountId.toString()), user_id: userId }
     );
     
-    if (!accStatus || !acc) {
+    if (!accFound) {
       return new Response(errorObject("Account not found", 404), { status: 404 });
     }
 

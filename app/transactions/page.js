@@ -184,15 +184,45 @@ export default function TransactionsPage() {
         actions={
           <Button
             onClick={() => {
+              if (accounts.length === 0) return; // guard: must have an account first
               setEditingTransaction(null);
               setIsModalOpen(true);
             }}
             variant="primary"
+            disabled={accounts.length === 0}
+            title={accounts.length === 0 ? 'Add an account first' : 'Add a new transaction'}
           >
             Add Transaction
           </Button>
         }
       />
+
+      {accounts.length === 0 && (
+        <Card className="mb-6">
+          <div className="text-center py-8">
+            <p className="text-slate-400 mb-4">No accounts found. Please add an account first to record transactions.</p>
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                variant="primary"
+                onClick={() => router.push('/accounts')}
+              >
+                Add Your First Account
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  fetchAccounts();
+                  fetchTransactions();
+                  router.refresh();
+                }}
+                className="text-slate-300 hover:bg-slate-700/40"
+              >
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card className="mb-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -250,6 +280,8 @@ export default function TransactionsPage() {
       <Card>
         {isLoading ? (
           <LoadingBlock />
+        ) : accounts.length === 0 ? (
+          <div className="text-center py-8 text-slate-400">Add an account to view and add transactions.</div>
         ) : (
           <>
             <Table 

@@ -63,16 +63,16 @@ export default function DocumentsPage() {
   });
 
   return (
-    <div className="max-w-4xl mx-auto p-6 flex-1 overflow-hidden flex flex-col">
-      <div className="mb-6">
+    <div className="max-w-3xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto p-6 flex-1 overflow-hidden flex flex-col">
+      <div className="mb-6 md:mb-8 text-center md:text-left">
         <h1 className="text-xl font-semibold text-slate-50">Documents</h1>
         <p className="text-slate-400 text-sm">Upload, view and manage your documents</p>
       </div>
 
-      {/* Fixed Controls (Search + Upload) */}
-      <div className="mb-4 bg-slate-800 border border-slate-700 rounded-2xl p-4">
+      {/* Sticky Controls (Search + Upload) */}
+      <div className="mb-4 bg-slate-800/95 backdrop-blur supports-[backdrop-filter]:bg-slate-800/80 border border-slate-700 rounded-2xl p-4 sticky top-0 z-30">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <h2 className="text-lg font-medium text-slate-50">All Documents</h2>
+          <h2 className="text-lg font-medium text-slate-50 text-center md:text-left">All Documents</h2>
           <div className="flex w-full md:w-auto items-center gap-2 flex-wrap sm:flex-nowrap">
             <input
               value={query}
@@ -123,37 +123,61 @@ export default function DocumentsPage() {
         ) : filteredDocs.length === 0 ? (
           <p className="text-slate-400 text-sm">No documents uploaded yet.</p>
         ) : (
-          <ul>
-            {filteredDocs.map((doc) => (
-              <li key={doc.id} className="py-4 border-b border-white/60 last:border-b-0 flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-indigo-500/15 text-indigo-300 grid place-items-center">📄</div>
-                <div className="flex-1 min-w-0">
+          <>
+            {/* Tablet-only header (hidden on mobile and desktop grid) */}
+            <div className="hidden md:flex lg:hidden text-xs uppercase tracking-wide text-slate-400 pb-2 px-1">
+              <div className="flex-1">Name</div>
+              <div className="w-24 text-right">Size</div>
+              <div className="w-40 text-right">Actions</div>
+            </div>
+            <ul className="divide-y divide-white/10 md:divide-white/20 lg:divide-y-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 lg:gap-4 xl:gap-6">
+              {filteredDocs.map((doc) => (
+                <li
+                  key={doc.id}
+                  className="py-4 first:pt-0 last:pb-0 flex flex-col gap-3 md:flex-row md:items-center md:gap-4 lg:rounded-xl lg:border lg:border-slate-700 lg:bg-slate-900/40 lg:p-4"
+                >
+                  {/* Left: icon + name (flex-1) */}
+                  <div className="flex items-start gap-3 md:flex-1">
+                    <div className="h-10 w-10 rounded-lg bg-indigo-500/15 text-indigo-300 grid place-items-center">📄</div>
+                    <div className="min-w-0">
+                      {editingId === doc.id ? (
+                        <input
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          className="w-full bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-2 py-1"
+                        />
+                      ) : (
+                        <p className="font-medium break-words md:truncate">{doc.title || doc.filename}</p>
+                      )}
+                      {/* Mobile and desktop-card meta: show size */}
+                      <div className="text-xs text-slate-400 mt-0.5 md:hidden lg:block">
+                        {Math.round((doc.size || 0)/1024)} KB
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Middle-right: Size (tablet only) */}
+                  <div className="hidden md:block lg:hidden w-24 text-sm text-slate-300 text-right">
+                    {Math.round((doc.size || 0)/1024)} KB
+                  </div>
+
+                  {/* Right: Actions */}
                   {editingId === doc.id ? (
-                    <input
-                      value={editingTitle}
-                      onChange={(e) => setEditingTitle(e.target.value)}
-                      className="w-full bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-2 py-1"
-                    />
+                    <div className="flex flex-wrap gap-2 md:justify-end md:w-40 lg:justify-start lg:w-auto">
+                      <Button onClick={onSaveTitle} size="sm" className="shrink-0">Save</Button>
+                      <Button onClick={() => setEditingId(null)} variant="outline" size="sm" className="shrink-0">Cancel</Button>
+                    </div>
                   ) : (
-                    <p className="font-medium break-words sm:truncate">{doc.title || doc.filename}</p>
+                    <div className="flex flex-wrap gap-2 md:justify-end md:w-40 lg:justify-start lg:w-auto">
+                      <Button onClick={() => previewDocument(doc.id)} size="sm" variant="outline" className="shrink-0">Open</Button>
+                      <Button onClick={() => onStartEdit(doc)} size="sm" variant="outline" className="shrink-0">Rename</Button>
+                      <Button onClick={() => onDelete(doc.id, doc.title)} size="sm" variant="danger" className="shrink-0">Delete</Button>
+                    </div>
                   )}
-                  <p className="text-xs text-slate-400 break-words sm:truncate">{doc.filename} • {doc.contentType} • {Math.round((doc.size || 0)/1024)} KB</p>
-                </div>
-                {editingId === doc.id ? (
-                  <div className="flex gap-2">
-                    <Button onClick={onSaveTitle} size="sm">Save</Button>
-                    <Button onClick={() => setEditingId(null)} variant="outline" size="sm">Cancel</Button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2 sm:self-auto self-start">
-                    <Button onClick={() => previewDocument(doc.id)} size="sm" variant="outline">Open</Button>
-                    <Button onClick={() => onStartEdit(doc)} size="sm" variant="outline">Rename</Button>
-                    <Button onClick={() => onDelete(doc.id, doc.title)} size="sm" variant="danger">Delete</Button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </div>

@@ -33,9 +33,9 @@ export async function POST(req) {
     let isNewUser = false;
 
     // 2) Try to find existing user
-    const { status, data: existingUser } = await MongoClientFindOne('users', { email });
+    const { found, data: existingUser } = await MongoClientFindOne('users', { email });
 
-    if (status && existingUser) {
+    if (found && existingUser) {
       // 2a) Verify password for existing user
       const isPasswordValid = await bcrypt.compare(value.password, existingUser.passwordHash || '');
       if (!isPasswordValid) {
