@@ -20,7 +20,8 @@ export default function TransactionsPage() {
   
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isTxLoading, setIsTxLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   
@@ -29,21 +30,25 @@ export default function TransactionsPage() {
   const type = searchParams.get('type') || '';
   const account = searchParams.get('account') || '';
 
-  const fetchTransactions = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({ month });
-      if (type) params.set('type', type);
-      if (account) params.set('account', account);
+  // Build query string for transactions API
+  const buildQueryString = useCallback(() => {
+    const params = new URLSearchParams({ month });
+    if (type) params.set('type', type);
+    if (account) params.set('account', account);
+    return params.toString();
+  }, [month, type, account]);
 
-      const data = await api(`/api/transactions?${params.toString()}`);
+  const fetchTransactions = useCallback(async () => {
+    setIsTxLoading(true);
+    try {
+      const data = await api(`/api/transactions?${buildQueryString()}`);
       setTransactions(data);
     } catch (error) {
       // Error is handled by the UI state
     } finally {
-      setIsLoading(false);
+      setIsTxLoading(false);
     }
-  }, [month, type, account]);
+  }, [buildQueryString]);
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -53,6 +58,23 @@ export default function TransactionsPage() {
       // Error is handled by the UI state
     }
   }, []);
+
+  // Initial load: fetch accounts and transactions concurrently to avoid UI flicker
+  const loadInitial = useCallback(async () => {
+    setIsInitialLoading(true);
+    try {
+      const [tx, acc] = await Promise.all([
+        api(`/api/transactions?${buildQueryString()}`),
+        api('/api/accounts'),
+      ]);
+      setTransactions(tx);
+      setAccounts(acc);
+    } catch (error) {
+      // handled by UI
+    } finally {
+      setIsInitialLoading(false);
+    }
+  }, [buildQueryString]);
 
   const handleDelete = async (transactionId) => {
     if (!window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
@@ -171,11 +193,11 @@ export default function TransactionsPage() {
     },
   ];
 
-  // Initial data fetch
+  // Initial data fetch (parallel)
   useEffect(() => {
-    fetchTransactions();
-    fetchAccounts();
-  }, [fetchTransactions, fetchAccounts]);
+    loadInitial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadInitial]);
 
   return (
     <div>
@@ -197,7 +219,7 @@ export default function TransactionsPage() {
         }
       />
 
-      {accounts.length === 0 && (
+      {!isInitialLoading && accounts.length === 0 && (
         <Card className="mb-6">
           <div className="text-center py-8">
             <p className="text-slate-400 mb-4">No accounts found. Please add an account first to record transactions.</p>
@@ -278,7 +300,7 @@ export default function TransactionsPage() {
       </Card>
 
       <Card>
-        {isLoading ? (
+        {(isInitialLoading || isTxLoading) ? (
           <LoadingBlock />
         ) : accounts.length === 0 ? (
           <div className="text-center py-8 text-slate-400">Add an account to view and add transactions.</div>
