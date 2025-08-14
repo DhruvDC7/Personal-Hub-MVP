@@ -199,7 +199,7 @@ export async function POST(req) {
         };
 
         // 5. Save to database
-        const { status: insertStatus, data: insertedDoc } = await MongoClientInsertOne(
+        const { status: insertStatus } = await MongoClientInsertOne(
             'feedback',
             feedbackDoc
         );

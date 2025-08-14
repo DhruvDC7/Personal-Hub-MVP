@@ -58,19 +58,17 @@ export async function POST(req) {
         lastLoginAt: now
       };
 
-      const { status: createStatus, data: createdUser } = await MongoClientInsertOne('users', newUser);
-      if (!createStatus || !createdUser) {
+      const userData = await MongoClientInsertOne('users', newUser);
+      if (!userData.status || !userData.data) {
         return new Response(JSON.stringify({ error: 'Failed to create user' }), {
           status: 500,
           headers: { 'Content-Type': 'application/json' }
         });
       }
-
-      user = { ...newUser, _id: createdUser.insertedId };
+      user = { ...newUser, _id: userData.id };
       isNewUser = true;
     }
-
-    // 3) Sign tokens with user id (string)
+    // 3) Sign tokens with user id (string)F
     const userId = user.id || user._id?.toString();
     const payload = { userId };
     const accessToken = signAccess(payload);

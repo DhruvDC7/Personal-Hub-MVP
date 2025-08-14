@@ -141,7 +141,7 @@ export async function POST(req) {
         attachment_ids: value.attachment_ids || [],
       };
 
-      const { status, id, message } = await MongoClientInsertOne("transactions", doc);
+      const { status, message } = await MongoClientInsertOne("transactions", doc);
       if (!status) throw new Error(message);
 
       // Apply balance changes
@@ -151,7 +151,7 @@ export async function POST(req) {
       ]);
 
       return Response.json(
-        { status: true, data: { id, ...doc } },
+        { status: true, data: { id: doc.id, ...doc } },
         { status: 201 }
       );
     }
@@ -161,7 +161,7 @@ export async function POST(req) {
       ...baseDoc,
       ...value,
     };
-    const { status, id, message } = await MongoClientInsertOne("transactions", doc);
+    const { status, message } = await MongoClientInsertOne("transactions", doc);
     if (!status) throw new Error(message);
 
     // Update account balance
@@ -181,7 +181,7 @@ export async function POST(req) {
     }
 
     return Response.json(
-      { status: true, data: { id, ...doc } },
+      { status: true, data: { id: doc.id, ...doc } },
       { status: 201 }
     );
       

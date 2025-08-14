@@ -165,7 +165,7 @@ export const MongoClientUpdateOne = async (collection, query = {}, update = {}) 
             status: updateResult.modifiedCount > 0,
             mode: "update",
             data: updateResult.modifiedCount,
-            id: updateResult.upsertedId || "",
+            id: updateResult.upsertedId?.toHexString ? updateResult.upsertedId.toHexString() : String(updateResult.upsertedId || ""),
             message: updateResult.modifiedCount > 0 ? "Update successful." : "No document updated."
         };
     } catch (e) {
@@ -194,8 +194,8 @@ export const MongoClientInsertOne = async (collection, document) => {
         return {
             status: insertResult.acknowledged,
             mode: "insert",
-            data: insertResult.insertedId,
-            id: insertResult.insertedId || "",
+            data: insertResult.insertedId?.toHexString ? insertResult.insertedId.toHexString() : String(insertResult.insertedId || ""),
+            id: insertResult.insertedId?.toHexString ? insertResult.insertedId.toHexString() : String(insertResult.insertedId || ""),
             message: insertResult.acknowledged ? "Insert successful." : "Insert failed."
         };
     } catch (e) {
