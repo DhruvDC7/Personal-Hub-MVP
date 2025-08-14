@@ -441,7 +441,7 @@ function Dashboard() {
           <Link href="/accounts" className="group">
             <div className="rounded-xl bg-slate-800/60 hover:bg-slate-800 transition p-4 text-center">
               <div className="mx-auto h-8 w-8 rounded-lg bg-yellow-600/20 text-yellow-300 grid place-items-center">🏦</div>
-              <div className="mt-2 text-sm">Banks</div>
+              <div className="mt-2 text-sm">Accounts</div>
             </div>
           </Link>
           <Link href="/documents" className="group">
