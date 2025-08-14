@@ -6,6 +6,8 @@ import { api } from '@/lib/fetcher';
 import { CATEGORIES } from '@/constants/types';
 import { showToast } from '@/lib/ui';
 import { Button } from '@/components/ui/Button';
+import Modal from '@/components/Modal';
+import AccountForm from '@/components/Forms/AccountForm';
 import {
   TRANSACTION_TYPE_OPTIONS,
   TRANSACTION_TYPES,
@@ -30,6 +32,8 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   const [aiNote, setAiNote] = useState('');
   const [isParsing, setIsParsing] = useState(false);
   const [isFormVisible, setIsFormVisible] = useState(true);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [accountTargetField, setAccountTargetField] = useState('account_id'); // 'account_id' | 'from_account_id' | 'to_account_id'
   const router = useRouter();
   const fetchedAccountsOnceRef = useRef(false);
 
@@ -166,6 +170,29 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     });
   }, [accounts, formData.category, formData.type]);
 
+  const openAddAccount = (targetField) => {
+    setAccountTargetField(targetField);
+    setIsAccountModalOpen(true);
+  };
+
+  const handleAccountCreated = async (created) => {
+    try {
+      const list = await api('/api/accounts');
+      setAccounts(list);
+      const newId = created?.id || created?._id || created?.data?.id || '';
+      if (newId) {
+        setFormData(prev => ({
+          ...prev,
+          [accountTargetField]: newId,
+          // If we set account for non-transfer, ensure account_id picks it
+          ...(accountTargetField === 'account_id' ? { account_id: newId } : {}),
+        }));
+      }
+    } finally {
+      setIsAccountModalOpen(false);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value, type } = e.target;
     // Special-case amount so users can clear the field (avoid coercing to 0)
@@ -222,6 +249,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   };
 
   const handleAiParse = async () => {
+    let didCallApi = false;
     if (!aiNote.trim()) {
       showToast({ type: 'error', message: 'Please enter a note to parse with AI.' });
       return;
@@ -229,9 +257,10 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     setIsParsing(true);
     try {
       // Ensure we have accounts available before calling AI, so we can send them for grounding
-      const accs = accounts && accounts.length ? accounts : await api('/api/accounts');
+      const accs = accounts && accounts.length ? accounts : (didCallApi = true, await api('/api/accounts'));
       const compactAccounts = (Array.isArray(accs) ? accs : []).map(a => ({ name: String(a?.name || ''), type: String(a?.type || '') }));
 
+      didCallApi = true;
       const parsedData = await api('/api/transactions/parse-with-ai', {
         method: 'POST',
         body: { note: aiNote, accounts: compactAccounts, category: formData.category || '' },
@@ -332,7 +361,10 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       showToast({ type: 'success', message: 'Form pre-filled with AI!' });
       setIsFormVisible(true);
     } catch (error) { 
-      showToast({ type: 'error', message: error.message || 'Failed to parse with AI' });
+      // If an API call already showed a toast, avoid duplicating it here
+      if (!didCallApi) {
+        showToast({ type: 'error', message: error.message || 'Failed to parse with AI' });
+      }
     } finally {
       setIsParsing(false);
     }
@@ -340,9 +372,12 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Guard against double submissions (e.g., rapid double-click)
+    if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
+      let didCallApi = false;
       let payload;
 
       if (formData.type === TRANSACTION_TYPES.TRANSFER) {
@@ -376,6 +411,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
 
       if (initialData.id) {
         // Update existing transaction
+        didCallApi = true;
         await api('/api/transactions', {
           method: 'PUT',
           body: { id: initialData.id, ...payload },
@@ -383,6 +419,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         showToast({ type: 'success', message: 'Transaction updated successfully' });
       } else {
         // Create new transaction
+        didCallApi = true;
         await api('/api/transactions', {
           method: 'POST',
           body: payload,
@@ -393,10 +430,17 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       if (onSuccess) onSuccess();
       router.refresh();
     } catch (error) {
-      showToast({
-        type: 'error',
-        message: error.message || 'Failed to save transaction',
-      });
+      // If request hit API, the API helper already showed an error toast; avoid duplicates
+      // Still show for client-side validation errors (no API call made)
+      if (!error || error.name !== 'AbortError') {
+        // Only show if we didn't already call API (which would have shown the toast)
+        if (typeof didCallApi === 'boolean' && !didCallApi) {
+          showToast({
+            type: 'error',
+            message: error?.message || 'Failed to save transaction',
+          });
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -483,6 +527,11 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
                 </option>
               ))}
             </select>
+            <div className="mt-2 flex justify-end">
+              <Button type="button" variant="ghost" size="sm" onClick={() => openAddAccount('from_account_id')}>
+                + Add account
+              </Button>
+            </div>
           </div>
           <div>
             <label htmlFor="to_account_id" className="block text-sm font-medium text-gray-400">
@@ -493,7 +542,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
               name="to_account_id"
               value={formData.to_account_id}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md bg-gray-900 border border-gray-700 text-gray-50 py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
+              className="mt-1 block w-full rounded-md bg-gray-900 border border-gray-700 text-gray-50 py-2 px-3 focus:ring-[var(--accent)] focus:border-[var(--accent)]"
               required
             >
               {accounts.map((account) => (
@@ -502,6 +551,11 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
                 </option>
               ))}
             </select>
+            <div className="mt-2 flex justify-end">
+              <Button type="button" variant="ghost" size="sm" onClick={() => openAddAccount('to_account_id')}>
+                + Add account
+              </Button>
+            </div>
           </div>
         </div>
       ) : (
@@ -523,6 +577,11 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
               </option>
             ))}
           </select>
+          <div className="mt-2 flex justify-end">
+            <Button type="button" variant="ghost" size="sm" onClick={() => openAddAccount('account_id')}>
+              + Add account
+            </Button>
+          </div>
         </div>
       )}
 
@@ -607,15 +666,26 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         <Button
           type="submit"
           isLoading={isSubmitting}
+          disabled={isSubmitting}
           variant="primary"
           size="sm"
-          className="rounded-lg"
+          className="rounded-lg focus:ring-[var(--accent)] focus:border-[var(--accent)]"
         >
           {isSubmitting ? 'Saving...' : 'Save Transaction'}
         </Button>
       </div>
     </form>
       )}
+      <Modal
+        open={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        title="Add New Account"
+      >
+        <AccountForm
+          onSuccess={handleAccountCreated}
+          onCancel={() => setIsAccountModalOpen(false)}
+        />
+      </Modal>
     </div>
   );
 }

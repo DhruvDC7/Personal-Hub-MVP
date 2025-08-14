@@ -67,7 +67,12 @@ export async function POST(req) {
     // If there is an initial balance, create an Opening Balance transaction
     if (requestedInitialBalance !== 0) {
       const openingAmount = Math.abs(requestedInitialBalance);
-      const openingType = requestedInitialBalance > 0 ? 'income' : 'expense';
+      // For loan accounts, a positive opening balance represents liability outstanding.
+      // We record it as an EXPENSE (so it doesn't inflate income), but still INCREASE the loan balance.
+      const isLoan = String(value?.type || '').toLowerCase() === 'loan';
+      const openingType = isLoan
+        ? (requestedInitialBalance >= 0 ? 'expense' : 'income')
+        : (requestedInitialBalance >= 0 ? 'income' : 'expense');
       const txDoc = {
         user_id: userId,
         type: openingType,
@@ -86,7 +91,10 @@ export async function POST(req) {
       if (!txRes.status) throw new Error(txRes.message || 'Failed to create opening balance transaction');
 
       // Apply balance delta to the account, mirroring transaction semantics
-      const delta = openingType === 'income' ? openingAmount : -openingAmount;
+      // For loans: positive requested balance should increase liability (balance)
+      const delta = isLoan
+        ? (requestedInitialBalance >= 0 ? openingAmount : -openingAmount)
+        : (openingType === 'income' ? openingAmount : -openingAmount);
       await MongoClientUpdateOne(
         'accounts',
         { _id: id, user_id: userId },

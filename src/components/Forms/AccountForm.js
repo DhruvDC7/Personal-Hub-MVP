@@ -50,7 +50,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
       };
       const payload = existingId ? { id: existingId, ...normalized } : normalized;
 
-      await api('/api/accounts', {
+      const result = await api('/api/accounts', {
         method,
         body: payload,
       });
@@ -60,7 +60,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
         message: `Account ${existingId ? 'updated' : 'created'} successfully`,
       });
       router.refresh();
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(result);
     } catch (error) {
       // Error is shown via toast in the API layer
     } finally {
@@ -112,7 +112,7 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
         </label>
         <div className="mt-1 relative rounded-lg">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="text-[var(--muted)] text-sm">$</span>
+            <span className="text-[var(--muted)] text-sm">₹</span>
           </div>
           <input
             type="number"
