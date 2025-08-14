@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const tabs = [
   {
@@ -82,6 +82,9 @@ function isActive(pathname, href) {
 export default function BottomNav() {
   const pathname = usePathname();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const containerRef = useRef(null);
+  const itemRefs = useRef({});
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
 
   const hidden = useMemo(() => {
     // Hide on auth pages and large screens via CSS; this is an extra route-level guard
@@ -108,6 +111,42 @@ export default function BottomNav() {
     };
   }, [hidden]);
 
+  // Compute sliding indicator position on route or feedback state change
+  useEffect(() => {
+    if (hidden) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const activeKey = feedbackOpen
+      ? "feedback"
+      : (tabs.find((t) => isActive(pathname, t.href))?.key || tabs[0].key);
+    const activeEl = itemRefs.current[activeKey];
+    if (!activeEl) return;
+
+    const parentRect = container.getBoundingClientRect();
+    const rect = activeEl.getBoundingClientRect();
+    setIndicator({ left: rect.left - parentRect.left, width: rect.width });
+  }, [pathname, feedbackOpen, hidden]);
+
+  // Keep indicator aligned on resize
+  useEffect(() => {
+    function handleResize() {
+      if (hidden) return;
+      const container = containerRef.current;
+      if (!container) return;
+      const activeKey = feedbackOpen
+        ? "feedback"
+        : (tabs.find((t) => isActive(pathname, t.href))?.key || tabs[0].key);
+      const activeEl = itemRefs.current[activeKey];
+      if (!activeEl) return;
+      const parentRect = container.getBoundingClientRect();
+      const rect = activeEl.getBoundingClientRect();
+      setIndicator({ left: rect.left - parentRect.left, width: rect.width });
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [pathname, feedbackOpen, hidden]);
+
   return (
     <nav
       className="md:hidden fixed z-50 left-1/2 -translate-x-1/2"
@@ -117,10 +156,17 @@ export default function BottomNav() {
       aria-label="Bottom Navigation"
     >
       <div
-        className="flex items-center justify-between gap-2 w-[90vw] max-w-[600px] h-16 px-7 rounded-[3rem] overflow-hidden
+        ref={containerRef}
+        className="relative flex items-center justify-between gap-2 w-[90vw] max-w-[600px] h-16 px-2 rounded-[3rem] overflow-hidden
                    bg-black/30 text-white backdrop-blur-[15px]
                    border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.25)]"
       >
+        {/* Sliding indicator */}
+        <span
+          className="absolute top-2 bottom-2 left-0 rounded-2xl bg-white/10 transition-all duration-300 ease-out"
+          style={{ transform: `translateX(${indicator.left}px)`, width: indicator.width }}
+          aria-hidden="true"
+        />
         {tabs.map((tab) => {
           const active = isActive(pathname, tab.href);
           const isFeedback = tab.key === "feedback";
@@ -128,6 +174,7 @@ export default function BottomNav() {
             <Link
               key={tab.key}
               href={tab.href}
+              ref={(el) => { if (el) itemRefs.current[tab.key] = el; }}
               aria-label={tab.label}
               onClick={(e) => {
                 if (isFeedback) {
@@ -144,14 +191,14 @@ export default function BottomNav() {
                   try { window.dispatchEvent(new Event('close-feedback')); } catch {}
                 }
               }}
-              className="group flex-1 h-12 rounded-xl flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-              aria-current={active ? "page" : undefined}
+              className="relative z-10 group flex-1 h-12 rounded-xl flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              aria-current={(active || (isFeedback && feedbackOpen)) ? "page" : undefined}
             >
               <div
-                className={`flex items-center justify-center gap-0 p-3 rounded-full transition-all duration-200
-                  ${active ? "bg-[var(--colour-primary)] text-[var(--colour-bg)]" : "text-white/90 hover:bg-black/30"}`}
+                className={`flex items-center justify-center gap-0 px-4 py-3 rounded-full transition-colors duration-200
+                  ${(active || (isFeedback && feedbackOpen)) ? "text-[var(--colour-bg)]" : "text-white/90 hover:text-white"}`}
               >
-                {tab.key === 'feedback' ? tab.icon(active, feedbackOpen) : tab.icon(active)}
+                {tab.key === 'feedback' ? tab.icon(active || feedbackOpen, feedbackOpen) : tab.icon(active)}
               </div>
             </Link>
           );
