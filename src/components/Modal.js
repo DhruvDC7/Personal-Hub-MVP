@@ -22,18 +22,18 @@ export default function Modal({ open, onClose, title, children }) {
   return createPortal(
     <>
       <div
-        className="fixed left-0 right-0 bottom-0 top-16 z-30 bg-black/70 backdrop-blur-sm"
+        className="fixed left-0 right-0 bottom-0 top-16 z-[70] bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
-        className="fixed left-0 right-0 bottom-0 top-16 z-40 flex items-start justify-center p-4 pt-6 md:pt-8 overflow-y-auto"
+        className="fixed left-0 right-0 bottom-0 top-16 z-[80] flex items-start justify-center p-4 pt-6 md:pt-8 overflow-y-auto"
         onClick={onClose}
       >
         <div
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          className="z-[60] w-full max-w-3xl md:max-w-4xl max-h-[90vh] rounded-2xl bg-[var(--card)]/95 shadow-2xl border border-[var(--border)] text-[var(--foreground)] flex flex-col ring-1 ring-white/10 modal-pop"
+          className="z-[90] w-full max-w-3xl md:max-w-4xl max-h-[90vh] rounded-2xl bg-[var(--card)]/95 shadow-2xl border border-[var(--border)] text-[var(--foreground)] flex flex-col ring-1 ring-white/10 modal-pop"
         >
           {title && (
             <div className="flex items-center justify-between flex-shrink-0 px-6 pt-5 pb-3 border-b border-[var(--border)]">
