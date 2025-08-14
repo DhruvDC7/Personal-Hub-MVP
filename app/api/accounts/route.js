@@ -6,6 +6,7 @@ import {
   MongoClientFind,
   MongoClientInsertOne,
   MongoClientUpdateOne,
+  MongoClientFindOne,
   MongoClientDeleteOne,
   MongoClientDocumentCount,
 } from "@/helpers/mongo";
@@ -127,19 +128,60 @@ export async function PUT(req) {
       return new Response(errorObject("id is required", 400), { status: 400 });
     }
     const { userId } = requireAuth(req);
-    const set = { updated_on: new Date() };
+
+    // Load existing account to compute balance delta and validate ownership
+    const { found: accFound, data: existingAcc } = await MongoClientFindOne(
+      "accounts",
+      { _id: id, user_id: userId }
+    );
+    if (!accFound) {
+      return new Response(errorObject("Account not found", 404), { status: 404 });
+    }
+
+    const now = new Date();
+    const set = { updated_on: now };
     if (typeof name === "string") set.name = name;
     if (typeof type === "string") set.type = type;
     if (typeof currency === "string") set.currency = currency;
-    if (typeof balance === "number") set.balance = balance;
     if (meta && typeof meta === "object") set.meta = meta;
+
+    // If balance provided, create an adjustment transaction and apply delta
+    let appliedDelta = 0;
+    if (typeof balance === "number" && typeof existingAcc.balance === "number" && balance !== existingAcc.balance) {
+      appliedDelta = balance - existingAcc.balance;
+
+      // Create a Balance Adjustment transaction (single-account)
+      const amountAbs = Math.abs(appliedDelta);
+      const txDoc = {
+        user_id: userId,
+        type: appliedDelta >= 0 ? "income" : "expense",
+        account_id: id,
+        amount: amountAbs,
+        currency: existingAcc.currency || currency || "INR",
+        category: "Balance Adjustment",
+        note: `Adjusted balance from ${existingAcc.balance} to ${balance}`,
+        tags: ["adjustment"],
+        attachment_ids: [],
+        created_on: now,
+        updated_on: now,
+        happened_on: now,
+      };
+      const txRes = await MongoClientInsertOne("transactions", txDoc);
+      if (!txRes.status) throw new Error(txRes.message || "Failed to create adjustment transaction");
+    }
+
+    // Build update operation: set fields and increment balance by delta if any
+    const updateOp = appliedDelta !== 0
+      ? { $set: set, $inc: { balance: appliedDelta } }
+      : { $set: set };
+
     const { status, message } = await MongoClientUpdateOne(
       "accounts",
       { _id: id, user_id: userId },
-      { $set: set }
+      updateOp
     );
     if (!status) throw new Error(message);
-    return Response.json({ status: true, data: { id, ...set } });
+    return Response.json({ status: true, data: { id, ...set, ...(appliedDelta !== 0 ? { balance } : {}) } });
   } catch (e) {
     if (e.status === 401) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
