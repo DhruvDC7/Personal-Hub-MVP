@@ -152,9 +152,11 @@ export async function PUT(req) {
 
       // Create a Balance Adjustment transaction (single-account)
       const amountAbs = Math.abs(appliedDelta);
+      const isLoan = String(existingAcc?.type || '').toLowerCase() === 'loan';
       const txDoc = {
         user_id: userId,
-        type: appliedDelta >= 0 ? "income" : "expense",
+        // Loan semantics: lowering loan (delta<0) is income; increasing loan (delta>0) is expense
+        type: isLoan ? (appliedDelta >= 0 ? "expense" : "income") : (appliedDelta >= 0 ? "income" : "expense"),
         account_id: id,
         amount: amountAbs,
         currency: existingAcc.currency || currency || "INR",
