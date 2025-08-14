@@ -592,6 +592,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           type="button"
           onClick={onCancel}
           variant="outline"
+          size="sm"
         >
           Cancel
         </Button>
@@ -599,7 +600,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           type="submit"
           isLoading={isSubmitting}
           variant="primary"
-          size="lg"
+          size="sm"
           className="rounded-lg"
         >
           {isSubmitting ? 'Saving...' : 'Save Transaction'}
