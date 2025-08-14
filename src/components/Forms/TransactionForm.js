@@ -404,44 +404,39 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
   }
 
   return (
-    <>
-      <div className="mb-6">
-        <label htmlFor="ai-note" className="block text-sm font-medium text-[var(--muted)] mb-2 text-center">
+    <div className="p-6 bg-gray-800 rounded-xl shadow-lg max-w-xl mx-auto">
+      <div className="mb-4">
+        <label htmlFor="ai-note" className="block text-sm font-medium text-gray-400 mb-2 text-center">
           Describe your transaction with AI
         </label>
-        <div className="relative flex items-center rounded-full overflow-hidden border border-red-500/30 bg-[var(--input)]/60 ring-1 ring-red-400/20 shadow-[0_0_38px_rgba(239,68,68,0.18)] w-full max-w-xl md:max-w-2xl mx-auto transition-shadow focus-within:ring-2 focus-within:ring-red-500/60 focus-within:border-red-500/60 focus-within:shadow-[0_0_48px_rgba(239,68,68,0.35)]">
-          <span className="hidden sm:grid place-items-center pl-5 pr-2 text-slate-300">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-5 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-3.5-3.5"/></svg>
-          </span>
-          <textarea
-            id="ai-note"
-            name="ai-note"
-            rows={2}
-            value={aiNote}
-            onChange={(e) => setAiNote(e.target.value)}
-            className="flex-1 block w-full bg-transparent text-[var(--foreground)] placeholder-white/70 border-0 focus:ring-0 focus:outline-none outline-none text-[15px] md:text-base leading-6 py-3.5 px-4 sm:pl-2 min-h-[56px]"
-            placeholder="e.g., paid 500 for rent"
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAiParse())}
-          />
+        <textarea
+          id="ai-note"
+          name="ai-note"
+          rows={2}
+          value={aiNote}
+          onChange={(e) => setAiNote(e.target.value)}
+          className="bg-gray-900 text-gray-100 border border-gray-700 rounded-lg py-3 px-4 w-full text-lg focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)] transition duration-300 ease-in-out"
+          placeholder="e.g., paid 500 for rent"
+          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAiParse())}
+        />
+        <div className="flex justify-end mt-2">
           <Button
             type="button"
             onClick={handleAiParse}
             isLoading={isParsing}
             aria-label="Fill with AI"
-            className="rounded-full m-1 ml-0 h-10 w-10 sm:h-11 sm:w-11 grid place-items-center bg-gradient-to-br from-rose-500 to-red-500 text-white shadow-lg hover:shadow-red-500/30"
+            variant="primary"
+            size="md"
+            className="rounded-lg"
           >
-            {isParsing ? (
-              '...'
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-            )}
+            {isParsing ? 'Parsing...' : 'Fill with AI'}
           </Button>
         </div>
       </div>
       {isFormVisible && (
-        <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <label htmlFor="type" className="block text-sm font-medium text-[var(--muted)] mb-1">
+        <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="mb-4">
+        <label htmlFor="type" className="block text-sm font-medium text-gray-400">
           Transaction Type
         </label>
         <select
@@ -449,7 +444,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           name="type"
           value={formData.type}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+          className="mt-1 block w-full rounded-md bg-gray-900 border border-gray-700 text-gray-50 py-2 px-3 focus:ring-[var(--accent)] focus:border-[var(--accent)]"
           required
         >
           {transactionTypes.map((type) => (
@@ -461,9 +456,9 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       </div>
 
       {formData.type === 'transfer' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <label htmlFor="from_account_id" className="block text-sm font-medium text-[var(--muted)] mb-1">
+            <label htmlFor="from_account_id" className="block text-sm font-medium text-gray-400">
               From Account
             </label>
             <select
@@ -471,7 +466,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
               name="from_account_id"
               value={formData.from_account_id}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+              className="mt-1 block w-full rounded-md bg-gray-900 border border-gray-700 text-gray-50 py-2 px-3 focus:ring-[var(--accent)] focus:border-[var(--accent)]"
               required
             >
               {accounts.map((account) => (
@@ -482,7 +477,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
             </select>
           </div>
           <div>
-            <label htmlFor="to_account_id" className="block text-sm font-medium text-[var(--muted)] mb-1">
+            <label htmlFor="to_account_id" className="block text-sm font-medium text-gray-400">
               To Account
             </label>
             <select
@@ -490,7 +485,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
               name="to_account_id"
               value={formData.to_account_id}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+              className="mt-1 block w-full rounded-md bg-gray-900 border border-gray-700 text-gray-50 py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500"
               required
             >
               {accounts.map((account) => (
@@ -502,8 +497,8 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           </div>
         </div>
       ) : (
-        <div>
-          <label htmlFor="account_id" className="block text-sm font-medium text-[var(--muted)] mb-1">
+        <div className="mb-4">
+          <label htmlFor="account_id" className="block text-sm font-medium text-gray-400">
             Account
           </label>
           <select
@@ -511,7 +506,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
             name="account_id"
             value={formData.account_id}
             onChange={handleChange}
-            className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+            className="mt-1 block w-full rounded-md bg-gray-900 border border-gray-700 text-gray-50 py-2 px-3 focus:ring-[var(--accent)] focus:border-[var(--accent)]"
             required
           >
             {accounts.map((account) => (
@@ -523,8 +518,8 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         </div>
       )}
 
-      <div>
-        <label htmlFor="amount" className="block text-sm font-medium text-[var(--muted)] mb-1">
+      <div className="mb-4">
+        <label htmlFor="amount" className="block text-sm font-medium text-gray-400">
           Amount
         </label>
         <div className="relative rounded-lg overflow-hidden">
@@ -543,14 +538,14 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
             onChange={handleChange}
             onFocus={handleInputFocus}
             inputMode="decimal"
-            className="block w-full bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 pl-12 pr-4 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm rounded-lg transition-colors"
+            className="mt-1 block w-full rounded-md bg-gray-900 border border-gray-700 text-gray-50 py-2.5 pl-12 pr-4 focus:ring-[var(--accent)] focus:border-[var(--accent)]"
             required
           />
         </div>
       </div>
 
-      <div>
-        <label htmlFor="category" className="block text-sm font-medium text-[var(--muted)] mb-1">
+      <div className="mb-4">
+        <label htmlFor="category" className="block text-sm font-medium text-gray-400">
           Category
         </label>
         <select
@@ -558,7 +553,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           name="category"
           value={formData.type === 'transfer' ? 'Transfer' : formData.category}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+          className="mt-1 block w-full rounded-md bg-gray-900 border border-gray-700 text-gray-50 py-2 px-3 focus:ring-[var(--accent)] focus:border-[var(--accent)]"
           required={formData.type !== 'transfer'}
           disabled={formData.type === 'transfer'}
         >
@@ -577,8 +572,8 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         </select>
       </div>
 
-      <div>
-        <label htmlFor="note" className="block text-sm font-medium text-[var(--muted)] mb-1">
+      <div className="mb-4">
+        <label htmlFor="note" className="block text-sm font-medium text-gray-400">
           Note (Optional)
         </label>
         <textarea
@@ -588,7 +583,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
           value={formData.note}
           onChange={handleChange}
           onFocus={handleInputFocus}
-          className="mt-1 block w-full rounded-lg bg-[var(--input)]/60 text-[var(--foreground)] border border-[var(--border)]/80 ring-1 ring-white/10 py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+          className="mt-1 block w-full rounded-md bg-gray-900 border border-gray-700 text-gray-50 py-2 px-3 focus:ring-[var(--accent)] focus:border-[var(--accent)]"
         />
       </div>
 
@@ -603,13 +598,15 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         <Button
           type="submit"
           isLoading={isSubmitting}
-          className="shadow-lg hover:shadow-xl"
+          variant="primary"
+          size="lg"
+          className="rounded-lg"
         >
           {isSubmitting ? 'Saving...' : 'Save Transaction'}
         </Button>
       </div>
     </form>
       )}
-    </>
+    </div>
   );
 }
