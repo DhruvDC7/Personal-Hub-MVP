@@ -257,6 +257,37 @@ function Dashboard() {
       </div>
     </div>
 
+    <div class="card" style="margin-top:16px;">
+      <h3>AI Insights & Tips</h3>
+      ${(() => { try {
+        const ai = (() => {
+          const r = (data?.ai) ?? (data?.data?.ai) ?? {};
+          const arr = (k) => Array.isArray(r[k]) ? r[k].filter(x => typeof x === 'string' && x.trim()) : [];
+          return {
+            insights: arr('insights'),
+            opportunities: arr('opportunities'),
+            risks: arr('risks'),
+            nextActions: arr('nextActions'),
+          };
+        })();
+        const sect = (title, items) => `
+          <div>
+            <h4 style="margin:6px 0 6px; font-size:13px; color: var(--muted); font-weight:600;">${title}</h4>
+            ${items.length ? `<ul style="margin:0; padding-left:18px;">
+              ${items.map(i => `<li style=\"margin:4px 0;\">${i}</li>`).join('')}
+            </ul>` : `<div class=\"muted\">No ${title.toLowerCase()} available.</div>`}
+          </div>`;
+        return `
+          <div class=\"grid\" style=\"grid-template-columns: repeat(2, 1fr); gap: 16px;\">
+            ${sect('Insights', ai.insights)}
+            ${sect('Opportunities', ai.opportunities)}
+            ${sect('Risks', ai.risks)}
+            ${sect('Next Actions', ai.nextActions)}
+          </div>
+        `;
+      } catch { return '<div class="muted">AI insights unavailable.</div>'; } })()}
+    </div>
+
     <div class="footer">Confidential · Personal Finance Report</div>
   </div>
 </body>

@@ -129,6 +129,7 @@ export async function POST(req) {
         phone: user.phone || user.phoneNumber || undefined,
       } : { id: userId },
       totals,
+      netWorth: (totals.bank + totals.investment - totals.loan),
       accountsCount: accounts.length,
       transactionsAnalyzed: transactions.length,
       currency: 'INR',
@@ -159,6 +160,17 @@ Anomalies: ${JSON.stringify(anomalies)}
 UserContext: ${JSON.stringify({ userId })}
 `;
       ai = await aiJSONPrompt(prompt);
+      // Coerce/validate AI response to expected shape
+      if (typeof ai === 'string') {
+        try { ai = JSON.parse(ai); } catch { ai = {}; }
+      }
+      const ensureArray = (v) => Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : [];
+      ai = {
+        insights: ensureArray(ai.insights),
+        opportunities: ensureArray(ai.opportunities),
+        risks: ensureArray(ai.risks),
+        nextActions: ensureArray(ai.nextActions),
+      };
     } catch (e) {
       ai = { insights: [], opportunities: [], risks: [], nextActions: [], error: String(e?.message || e) };
     }
