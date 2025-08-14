@@ -181,7 +181,7 @@ export default function TransactionsPage() {
             Edit
           </Button>
           <Button
-            onClick={() => handleDelete(txn.id)}
+            onClick={() => handleDelete(txn._id || txn.id)}
             variant="ghost"
             size="sm"
             className="text-red-600 hover:bg-red-600/10"
