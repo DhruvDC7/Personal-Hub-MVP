@@ -22,9 +22,17 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    // Let users clear the balance field (avoid coercing to 0 while typing)
+    if (name === 'balance') {
+      setFormData(prev => ({
+        ...prev,
+        balance: value, // keep as string; convert on submit
+      }));
+      return;
+    }
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value,
+      [name]: type === 'number' ? (value === '' ? '' : parseFloat(value)) : value,
     }));
   };
 
@@ -35,7 +43,12 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
     try {
       const existingId = initialData.id || initialData._id;
       const method = existingId ? 'PUT' : 'POST';
-      const payload = existingId ? { id: existingId, ...formData } : formData;
+      // Convert balance to a number just before submit
+      const normalized = {
+        ...formData,
+        balance: formData.balance === '' ? 0 : Number(formData.balance),
+      };
+      const payload = existingId ? { id: existingId, ...normalized } : normalized;
 
       await api('/api/accounts', {
         method,
