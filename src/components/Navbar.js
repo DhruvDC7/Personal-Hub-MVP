@@ -17,7 +17,7 @@ export default function Navbar() {
     { name: 'Dashboard', path: '/dashboard' },
     { name: 'Accounts', path: '/accounts' },
     { name: 'Transactions', path: '/transactions' },
-    { name: 'Documents', path: '/documents' },
+    { name: 'Documents', path: '/transactions' },
   ];
   // Avatar is managed and cached by useAvatar
   
@@ -80,7 +80,7 @@ export default function Navbar() {
                   const isActive = pathname === item.path;
                   return (
                     <Link
-                      key={item.path}
+                      key={item.name}
                       href={item.path}
                       data-path={item.path}
                       className={`relative z-10 inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${

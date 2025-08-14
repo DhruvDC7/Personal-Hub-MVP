@@ -23,7 +23,7 @@ const tabs = [
   },
   {
     key: "documents",
-    href: "/documents",
+    href: "/transactions",
     label: "Docs",
     icon: (active) => (
       <svg
