@@ -22,6 +22,9 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [pw, setPw] = useState({ old: '', nw: '', confirm: '' });
+  const [isChanging, setIsChanging] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -90,6 +93,53 @@ export default function ProfilePage() {
     setAvatarPreview('');
     // Optimistically clear cache so Navbar reflects removal after save
     clearAvatarCache();
+  };
+
+  const validateNewPassword = (pwd) => {
+    // at least 8 chars, 1 lowercase, 1 uppercase, 1 special
+    const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
+    return strong.test(pwd);
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!pw.old || !pw.nw || !pw.confirm) {
+      showToast({ type: 'error', message: 'Please fill all password fields' });
+      return;
+    }
+    if (!validateNewPassword(pw.nw)) {
+      showToast({ type: 'error', message: 'New password must be 8+ chars with upper, lower, and special character' });
+      return;
+    }
+    if (pw.nw !== pw.confirm) {
+      showToast({ type: 'error', message: 'New passwords do not match' });
+      return;
+    }
+    if (pw.old === pw.nw) {
+      showToast({ type: 'error', message: 'New password must be different from old password' });
+      return;
+    }
+
+    setIsChanging(true);
+    try {
+      const res = await fetch('/api/me/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPassword: pw.old, newPassword: pw.nw }),
+      });
+
+      if (res.ok) {
+        setPw({ old: '', nw: '', confirm: '' });
+        showToast({ type: 'success', message: 'Password updated successfully' });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast({ type: 'error', message: data?.error || 'Failed to update password' });
+      }
+    } catch (err) {
+      showToast({ type: 'error', message: err.message || 'Failed to update password' });
+    } finally {
+      setIsChanging(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -223,6 +273,13 @@ export default function ProfilePage() {
                 className="text-sm px-3 py-1.5 rounded-lg flex-shrink-0"
               >
                 Edit Profile
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowChangePassword(true)}
+                className="text-sm px-3 py-1.5 rounded-lg flex-shrink-0"
+              >
+                Change Password
               </Button>
             </>
           ) : (
@@ -363,6 +420,67 @@ export default function ProfilePage() {
           </form>
         </div>
       </div>
+
+      {showChangePassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowChangePassword(false)} />
+          <div className="relative z-10 w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-100">Change Password</h2>
+              <button
+                type="button"
+                onClick={() => setShowChangePassword(false)}
+                className="text-slate-400 hover:text-slate-200"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="oldPassword" className="block text-sm font-medium text-slate-300 mb-1">Old Password</label>
+                <input
+                  id="oldPassword"
+                  type="password"
+                  autoComplete="current-password"
+                  value={pw.old}
+                  onChange={(e) => setPw(p => ({ ...p, old: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label htmlFor="newPassword" className="block text-sm font-medium text-slate-300 mb-1">New Password</label>
+                <input
+                  id="newPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  value={pw.nw}
+                  onChange={(e) => setPw(p => ({ ...p, nw: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-slate-400 mt-1">Must be 8+ characters with uppercase, lowercase and special character.</p>
+              </div>
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-1">Confirm New Password</label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  value={pw.confirm}
+                  onChange={(e) => setPw(p => ({ ...p, confirm: e.target.value }))}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button type="button" variant="outline" onClick={() => setShowChangePassword(false)} className="text-sm px-3 py-1.5 rounded-lg">Cancel</Button>
+                <Button type="submit" disabled={isChanging} className="text-sm px-3 py-1.5 rounded-lg">
+                  {isChanging ? 'Updating...' : 'Update Password'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
