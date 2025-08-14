@@ -14,10 +14,8 @@ dayjs.extend(timezone);
 
 const schema = Joi.object({
   oldPassword: Joi.string().min(6).required(),
-  newPassword: Joi.string()
-    .min(8)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).+$/)
-    .required(),
+  // Relaxed: accept any non-empty new password
+  newPassword: Joi.string().min(1).required(),
 });
 
 export async function POST(req) {

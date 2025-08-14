@@ -95,10 +95,9 @@ export default function ProfilePage() {
     clearAvatarCache();
   };
 
-  const validateNewPassword = (pwd) => {
-    // at least 8 chars, 1 lowercase, 1 uppercase, 1 special
-    const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/;
-    return strong.test(pwd);
+  const validateNewPassword = (_pwd) => {
+    // Complexity validation removed; always allow on client-side
+    return true;
   };
 
   const handlePasswordSubmit = async (e) => {
@@ -145,7 +144,7 @@ export default function ProfilePage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
-    
+
     try {
       // Build requests independently so one failure doesn't block the other
       const profilePromise = fetch('/api/me', {
@@ -221,7 +220,7 @@ export default function ProfilePage() {
           address: data.user?.address || ''
         }));
       });
-    
+
     // Reset avatar preview
     setAvatar(null);
     setAvatarPreview('');
@@ -258,52 +257,8 @@ export default function ProfilePage() {
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex flex-col space-y-4 mb-8">
         <h1 className="text-2xl font-bold text-slate-100">Profile</h1>
-        <div className="flex flex-wrap gap-2">
-          {!isEditing ? (
-            <>
-              <Button 
-                variant="outline" 
-                className="text-sm px-3 py-1.5 rounded-lg flex-shrink-0"
-                onClick={handleLogout}
-              >
-                Sign Out
-              </Button>
-              <Button 
-                onClick={() => setIsEditing(true)}
-                className="text-sm px-3 py-1.5 rounded-lg flex-shrink-0"
-              >
-                Edit Profile
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowChangePassword(true)}
-                className="text-sm px-3 py-1.5 rounded-lg flex-shrink-0"
-              >
-                Change Password
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button 
-                variant="outline" 
-                onClick={handleCancel}
-                className="text-sm px-3 py-1.5 rounded-lg"
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSubmit} 
-                disabled={isSaving}
-                className="text-sm px-3 py-1.5 rounded-lg"
-              >
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </>
-          )}
-        </div>
       </div>
-      
+
       <div className="flex flex-col md:flex-row gap-8 mt-4">
         {/* Avatar Section */}
         <div className="flex-shrink-0 flex flex-col items-center space-y-4 w-full md:w-auto">
@@ -322,7 +277,7 @@ export default function ProfilePage() {
               </span>
             )}
           </div>
-          
+
           {isEditing && (
             <div className="flex flex-col space-y-2 w-full">
               <input
@@ -353,7 +308,7 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
-        
+
         {/* Profile Form */}
         <div className="flex-1">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -421,6 +376,54 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Page Footer Actions */}
+      <div className="mt-8 pt-4 border-t border-slate-800">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-4">
+          {!isEditing ? (
+            <>
+              <Button
+                onClick={() => setIsEditing(true)}
+                className="w-full sm:w-auto text-sm px-3 py-1.5 rounded-lg"
+              >
+                Edit Profile
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowChangePassword(true)}
+                className="w-full sm:w-auto text-sm px-3 py-1.5 rounded-lg"
+              >
+                Change Password
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto text-sm px-3 py-1.5 rounded-lg"
+                onClick={handleLogout}
+              >
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                className="w-full sm:w-auto text-sm px-3 py-1.5 rounded-lg"
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isSaving}
+                className="w-full sm:w-auto text-sm px-3 py-1.5 rounded-lg"
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
       {showChangePassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowChangePassword(false)} />
@@ -458,7 +461,7 @@ export default function ProfilePage() {
                   onChange={(e) => setPw(p => ({ ...p, nw: e.target.value }))}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <p className="text-xs text-slate-400 mt-1">Must be 8+ characters with uppercase, lowercase and special character.</p>
+                {/* Password complexity hint removed */}
               </div>
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-1">Confirm New Password</label>
