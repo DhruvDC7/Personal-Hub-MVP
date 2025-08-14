@@ -168,7 +168,15 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
-    const parsedValue = type === 'number' ? parseFloat(value) || 0 : value;
+    // Special-case amount so users can clear the field (avoid coercing to 0)
+    if (name === 'amount') {
+      setFormData(prev => ({
+        ...prev,
+        amount: value, // keep as string while typing; convert on submit
+      }));
+      return;
+    }
+    const parsedValue = type === 'number' ? (value === '' ? '' : parseFloat(value)) : value;
 
     // Special handling when switching transaction type
     if (name === 'type') {
