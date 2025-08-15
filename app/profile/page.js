@@ -1,5 +1,4 @@
 'use client';
-
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
