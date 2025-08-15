@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/fetcher';
 import { CATEGORIES } from '@/constants/types';
@@ -82,7 +82,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
     }
     return null;
   };
-  const findLoanAccount = (list) => {
+  const findLoanAccount = useCallback((list) => {
     const arr = Array.isArray(list) ? list : accounts;
     // prefer names that include 'loan' first
     return (
@@ -90,7 +90,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       arr.find(a => norm(a?.name).includes('loan')) ||
       null
     );
-  };
+  }, [accounts]);
 
   // Ensure inputs behave nicely on focus on mobile/desktop
   const handleInputFocus = (e) => {
@@ -168,7 +168,7 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
 
       return changed ? next : prev;
     });
-  }, [accounts, formData.category, formData.type]);
+  }, [accounts, formData.category, formData.type, findLoanAccount]);
 
   const openAddAccount = (targetField) => {
     setAccountTargetField(targetField);
@@ -380,16 +380,25 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
       let didCallApi = false;
       let payload;
 
+      // Helper to parse and round amount
+      const parseAndRound = (val) => {
+        if (val === '' || val === null || val === undefined) throw new Error('Please enter an amount');
+        const n = Number(val);
+        if (!Number.isFinite(n)) throw new Error('Please enter a valid numeric amount');
+        return Math.round(n * 100) / 100;
+      };
+
       if (formData.type === TRANSACTION_TYPES.TRANSFER) {
         const fromAcc = accounts.find(acc => acc._id === formData.from_account_id);
         const toAcc = accounts.find(acc => acc._id === formData.to_account_id);
         if (!fromAcc || !toAcc) throw new Error('Please select valid From and To accounts');
         if (fromAcc._id === toAcc._id) throw new Error('From and To accounts must be different');
+        const rounded = parseAndRound(formData.amount);
         payload = {
           type: TRANSACTION_TYPES.TRANSFER,
           from_account_id: fromAcc._id,
           to_account_id: toAcc._id,
-          amount: Number(formData.amount),
+          amount: rounded,
           category: CATEGORY_TRANSFER,
           note: formData.note || '',
         };
@@ -399,22 +408,24 @@ export default function TransactionForm({ initialData = {}, onSuccess, onCancel 
         if (!selectedAccount) {
           throw new Error('Please select a valid account');
         }
+        const rounded = parseAndRound(formData.amount);
         // Build minimal payload for expense/income to avoid forbidden empty fields
         payload = {
           type: formData.type,
           account_id: selectedAccount._id,
-          amount: Number(formData.amount),
+          amount: rounded,
           category: formData.category,
           note: formData.note || '',
         };
       }
 
-      if (initialData.id) {
+      const editId = initialData.id || initialData._id;
+      if (editId) {
         // Update existing transaction
         didCallApi = true;
         await api('/api/transactions', {
           method: 'PUT',
-          body: { id: initialData.id, ...payload },
+          body: { id: String(editId), ...payload },
         });
         showToast({ type: 'success', message: 'Transaction updated successfully' });
       } else {

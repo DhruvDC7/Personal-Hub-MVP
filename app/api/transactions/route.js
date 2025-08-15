@@ -198,21 +198,24 @@ export async function POST(req) {
 
 export async function PUT(req) {
   try {
+    // Step 1: Parse the incoming request body
     const body = await req.json();
     const { id, account_id, type, amount, currency, category, note, tags, attachment_ids } = body || {};
-    
+  
+    // Step 2: Check for required fields
     if (!id) return new Response(errorObject("Transaction ID is required", 400), { status: 400 });
 
+    // Step 3: Extract user ID from the request
     const { userId } = requireAuth(req);
     let txId;
-    
+    debugger
     try {
-      txId = new ObjectId(String(id));
+      txId = new ObjectId(String(id)); // Convert the transaction ID to ObjectId
     } catch {
       return new Response(errorObject("Invalid transaction ID", 400), { status: 400 });
     }
 
-    // Verify transaction exists
+    // Step 4: Verify that the transaction exists
     const { found: existingFound, data: existing } = await MongoClientFindOne(
       "transactions",
       { _id: toObjectId(txId.toString()), user_id: userId }
@@ -222,33 +225,33 @@ export async function PUT(req) {
       return new Response(errorObject("Transaction not found", 404), { status: 404 });
     }
 
-    // Block edits for transfer transactions (not supported in this version)
+    // Step 5: Block editing for transfer transactions (not supported in this version)
     if (existing.type === TRANSACTION_TYPES.TRANSFER || type === TRANSACTION_TYPES.TRANSFER) {
       return new Response(errorObject("Editing transfers is not supported", 400), { status: 400 });
     }
 
-    // Prepare update fields
-    const set = { updated_on: new Date() };
-    
+    // Step 6: Prepare next values (but DO NOT update original transaction document)
+    // Validate and round next amount from body
+    let nextAmount = existing.amount;
+    if (amount !== undefined && amount !== null) {
+      const n = Number(amount);
+      if (!Number.isFinite(n)) {
+        return new Response(errorObject("Invalid amount", 400), { status: 400 });
+      }
+      nextAmount = Math.round(n * 100) / 100;
+    }
+    const nextType = type ?? existing.type;
+    let nextAccId = existing.account_id;
     if (account_id) {
       try {
-        set.account_id = new ObjectId(String(account_id));
+        nextAccId = new ObjectId(String(account_id));
       } catch {
         return new Response(errorObject("Invalid account ID", 400), { status: 400 });
       }
     }
-    
-    if (type) set.type = type;
-    if (typeof amount === "number") set.amount = amount;
-    if (currency) set.currency = currency;
-    if (category) set.category = category;
-    if (typeof note === "string") set.note = note;
-    if (Array.isArray(tags)) set.tags = tags;
 
-    if (Array.isArray(attachment_ids)) set.attachment_ids = attachment_ids;
-
-    // Validate account ownership if changed
-    const newAccountId = set.account_id ? set.account_id : existing.account_id;
+    // Step 7: Validate account ownership if account_id has changed
+    const newAccountId = nextAccId ? nextAccId : existing.account_id;
     const { found: accFound, data: acc } = await MongoClientFindOne(
       "accounts",
       { _id: toObjectId(newAccountId.toString()), user_id: userId }
@@ -258,17 +261,17 @@ export async function PUT(req) {
       return new Response(errorObject("Account not found", 404), { status: 404 });
     }
 
-    // Compute balance adjustments
+    // Step 8: Compute balance adjustments
     const prevSign = existing.type === "expense" ? -1 : existing.type === "income" ? 1 : 0;
-    const nextType = set.type ?? existing.type;
-    const nextAmount = typeof set.amount === "number" ? set.amount : existing.amount;
     const nextSign = nextType === "expense" ? -1 : nextType === "income" ? 1 : 0;
 
     const prevAccId = existing.account_id;
-    const nextAccId = newAccountId;
+    const nextAccIdComputed = newAccountId;
 
-    // Prepare balance updates
+    // Step 9: Prepare the balance update operations
     const ops = [];
+
+    // Adjust the balance for the previous transaction if needed
     if (prevSign !== 0) {
       ops.push(
         MongoClientUpdateOne(
@@ -279,34 +282,92 @@ export async function PUT(req) {
       );
     }
     
+    // Adjust the balance for the new transaction amount if needed
     if (nextSign !== 0) {
       ops.push(
         MongoClientUpdateOne(
           "accounts",
-          { _id: toObjectId(nextAccId.toString()) },
+          { _id: toObjectId(nextAccIdComputed.toString()) },
           { $inc: { balance: nextSign * nextAmount } }
         )
       );
     }
 
-    // Update transaction
-    const { status, message } = await MongoClientUpdateOne(
-      "transactions",
-      { _id: toObjectId(txId.toString()), user_id: userId },
-      { $set: set }
-    );
-    
-    if (!status) throw new Error(message);
+    // Step 10: Do NOT modify the original transaction document
 
-    // Execute balance updates
+    // Step 11: Execute all balance updates (in parallel)
     await Promise.all(ops);
 
-    return Response.json({ 
-      status: true, 
-      data: { id: txId, ...set } 
+    // Step 12: Insert a SINGLE adjustment transaction entry to log the edit
+    const now = new Date();
+    const deltaPrev = prevSign !== 0 ? (-prevSign * existing.amount) : 0; // on prev account
+    const deltaNext = nextSign !== 0 ? (nextSign * nextAmount) : 0;       // on next account
+
+    // Aggregate per-account deltas
+    const deltaMap = new Map();
+    if (deltaPrev !== 0) {
+      deltaMap.set(String(prevAccId), (deltaMap.get(String(prevAccId)) || 0) + deltaPrev);
+    }
+    if (deltaNext !== 0) {
+      deltaMap.set(String(nextAccIdComputed), (deltaMap.get(String(nextAccIdComputed)) || 0) + deltaNext);
+    }
+
+    // Choose one account to log the adjustment:
+    // - If both deltas are on the same account, use combined delta
+    // - If different accounts, prefer the account with positive delta; otherwise pick next account
+    let chosenAccountId = null;
+    let chosenDelta = 0;
+    if (deltaMap.size === 1) {
+      const [onlyId, onlyDelta] = Array.from(deltaMap.entries())[0];
+      chosenAccountId = onlyId;
+      chosenDelta = onlyDelta;
+    } else if (deltaMap.size > 1) {
+      const entries = Array.from(deltaMap.entries());
+      const positive = entries.find(([, d]) => d > 0);
+      if (positive) {
+        chosenAccountId = positive[0];
+        chosenDelta = positive[1];
+      } else {
+        // fallback: use next account delta
+        chosenAccountId = String(nextAccIdComputed);
+        chosenDelta = deltaMap.get(chosenAccountId) || 0;
+      }
+    }
+
+    if (chosenAccountId && chosenDelta !== 0) {
+      // Load the chosen account for loan semantics and name in note
+      const { found: accFound2, data: accDoc } = await MongoClientFindOne('accounts', { _id: toObjectId(chosenAccountId), user_id: userId });
+      const isLoan = String(accDoc?.type || '').toLowerCase() === 'loan';
+      const amountAbs = Number(Math.abs(chosenDelta).toFixed(2));
+      const typeForAdj = !isLoan
+        ? (chosenDelta >= 0 ? 'income' : 'expense')
+        : (chosenDelta >= 0 ? 'expense' : 'income');
+      const verb = chosenDelta >= 0 ? 'add back to' : 'deduct from';
+      const accName = accDoc?.name || 'selected';
+      const txDoc = {
+        user_id: userId,
+        type: typeForAdj,
+        account_id: toObjectId(chosenAccountId),
+        amount: amountAbs,
+        currency: accDoc?.currency || currency || 'INR',
+        category: 'Edit Adjustment',
+        note: `${amountAbs} ${verb} ${accName} account adjust from txn id - ${txId}`,
+        tags: ['adjustment', 'edit', `link:${txId}`],
+        created_on: now,
+        updated_on: now,
+        happened_on: now,
+      };
+      await MongoClientInsertOne('transactions', txDoc);
+    }
+
+    // Step 13: Return a response describing that a single adjustment transaction was created (if any)
+    return Response.json({
+      status: true,
+      data: { id: txId, adjustment_created: chosenAccountId ? 1 : 0 }
     });
       
   } catch (e) {
+    // Step 14: Handle errors (unauthorized access or unexpected errors)
     if (e.status === 401) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }

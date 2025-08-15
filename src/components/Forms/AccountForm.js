@@ -43,10 +43,17 @@ export default function AccountForm({ initialData = {}, onSuccess, onCancel }) {
     try {
       const existingId = initialData.id || initialData._id;
       const method = existingId ? 'PUT' : 'POST';
-      // Convert balance to a number just before submit
+      // Validate and round balance just before submit
+      const parseAndRound = (val) => {
+        if (val === '' || val === null || val === undefined) return 0; // empty treated as 0 for initial balance
+        const n = Number(val);
+        if (!Number.isFinite(n)) throw new Error('Please enter a valid numeric balance');
+        return Math.round(n * 100) / 100;
+      };
+      const roundedBalance = parseAndRound(formData.balance);
       const normalized = {
         ...formData,
-        balance: formData.balance === '' ? 0 : Number(formData.balance),
+        balance: roundedBalance,
       };
       const payload = existingId ? { id: existingId, ...normalized } : normalized;
 

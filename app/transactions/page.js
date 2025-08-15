@@ -169,7 +169,9 @@ export default function TransactionsPage() {
         <div className="flex space-x-2">
           <Button
             onClick={() => {
-              setEditingTransaction(txn);
+              // Normalize id upfront so the form reliably detects edit mode
+              const norm = { ...txn, id: txn.id || txn._id };
+              setEditingTransaction(norm);
               setIsModalOpen(true);
             }}
             variant="ghost"
@@ -334,7 +336,12 @@ export default function TransactionsPage() {
         title={editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}
       >
         <TransactionForm
-          initialData={editingTransaction || {}}
+          key={editingTransaction?.id || editingTransaction?._id || 'new'}
+          initialData={
+            editingTransaction
+              ? { ...editingTransaction, id: editingTransaction.id || editingTransaction._id }
+              : {}
+          }
           onSuccess={handleFormSubmit}
           onCancel={() => {
             setIsModalOpen(false);
