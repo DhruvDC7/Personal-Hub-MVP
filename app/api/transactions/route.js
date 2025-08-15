@@ -230,6 +230,13 @@ export async function PUT(req) {
       return new Response(errorObject("Editing transfers is not supported", 400), { status: 400 });
     }
 
+    // Step 5.1: Adjustment log transactions are not editable; return no-op (success)
+    const isAdjustmentLog = (String(existing?.category) === 'Edit Adjustment') ||
+      (Array.isArray(existing?.tags) && existing.tags.includes('adjustment'));
+    if (isAdjustmentLog) {
+      return Response.json({ status: true, data: { id: existing._id, adjustment_created: 0, message: 'Adjustment logs are not editable' } });
+    }
+
     // Step 6: Prepare next values (but DO NOT update original transaction document)
     // Validate and round next amount from body
     let nextAmount = existing.amount;
@@ -261,23 +268,40 @@ export async function PUT(req) {
       return new Response(errorObject("Account not found", 404), { status: 404 });
     }
 
-    // Step 8: Compute balance adjustments
-    const prevSign = existing.type === "expense" ? -1 : existing.type === "income" ? 1 : 0;
+    // Step 8: Load current effective state from the latest adjustment txn (fallback to original)
+    let prevAccId = existing.account_id;
+    let prevType = existing.type;
+    let prevAmount = existing.amount;
+    try {
+      const { status: s, data: adjList } = await MongoClientFind(
+        'transactions',
+        { user_id: userId, category: 'Edit Adjustment', tags: `link:${txId}` },
+        { sort: { created_on: -1 }, limit: 1 }
+      );
+      if (s && Array.isArray(adjList) && adjList.length > 0) {
+        const last = adjList[0];
+        prevAccId = last.eff_account_id || prevAccId;
+        prevType = last.eff_type || prevType;
+        prevAmount = typeof last.eff_amount === 'number' ? last.eff_amount : prevAmount;
+      }
+    } catch (_) { /* ignore and use original */ }
+
+    // Step 9: Compute balance adjustments relative to the effective state
+    const prevSign = prevType === "expense" ? -1 : prevType === "income" ? 1 : 0;
     const nextSign = nextType === "expense" ? -1 : nextType === "income" ? 1 : 0;
 
-    const prevAccId = existing.account_id;
     const nextAccIdComputed = newAccountId;
 
-    // Step 9: Prepare the balance update operations
+    // Step 10: Prepare the balance update operations
     const ops = [];
 
-    // Adjust the balance for the previous transaction if needed
+    // Adjust the balance for the previous effective transaction if needed
     if (prevSign !== 0) {
       ops.push(
         MongoClientUpdateOne(
           "accounts",
           { _id: toObjectId(prevAccId.toString()) },
-          { $inc: { balance: -prevSign * existing.amount } }
+          { $inc: { balance: -prevSign * prevAmount } }
         )
       );
     }
@@ -293,14 +317,14 @@ export async function PUT(req) {
       );
     }
 
-    // Step 10: Do NOT modify the original transaction document
+    // Step 11: Do NOT modify the original transaction document
 
-    // Step 11: Execute all balance updates (in parallel)
+    // Step 12: Execute all balance updates (in parallel)
     await Promise.all(ops);
 
-    // Step 12: Insert a SINGLE adjustment transaction entry to log the edit
+    // Step 13: Insert a SINGLE adjustment transaction entry to log the edit
     const now = new Date();
-    const deltaPrev = prevSign !== 0 ? (-prevSign * existing.amount) : 0; // on prev account
+    const deltaPrev = prevSign !== 0 ? (-prevSign * prevAmount) : 0; // on prev account
     const deltaNext = nextSign !== 0 ? (nextSign * nextAmount) : 0;       // on next account
 
     // Aggregate per-account deltas
@@ -353,6 +377,10 @@ export async function PUT(req) {
         category: 'Edit Adjustment',
         note: `${amountAbs} ${verb} ${accName} account adjust from txn id - ${txId}`,
         tags: ['adjustment', 'edit', `link:${txId}`],
+        // Store new effective state for future edits
+        eff_account_id: toObjectId(nextAccIdComputed.toString()),
+        eff_type: nextType,
+        eff_amount: nextAmount,
         created_on: now,
         updated_on: now,
         happened_on: now,
@@ -360,7 +388,7 @@ export async function PUT(req) {
       await MongoClientInsertOne('transactions', txDoc);
     }
 
-    // Step 13: Return a response describing that a single adjustment transaction was created (if any)
+    // Step 14: Return a response describing that a single adjustment transaction was created (if any)
     return Response.json({
       status: true,
       data: { id: txId, adjustment_created: chosenAccountId ? 1 : 0 }

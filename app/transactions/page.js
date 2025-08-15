@@ -167,21 +167,35 @@ export default function TransactionsPage() {
       header: 'Actions',
       render: (txn) => (
         <div className="flex space-x-2">
-          <Button
-            onClick={() => {
-              // Normalize id upfront so the form reliably detects edit mode
-              const norm = { ...txn, id: txn.id || txn._id };
-              setEditingTransaction(norm);
-              setIsModalOpen(true);
-            }}
-            variant="ghost"
-            size="sm"
-            className="text-sky-400 hover:bg-sky-500/10"
-            disabled={txn.type === TRANSACTION_TYPES.TRANSFER}
-            title={txn.type === TRANSACTION_TYPES.TRANSFER ? 'Editing transfers is not supported' : 'Edit'}
-          >
-            Edit
-          </Button>
+          {(() => {
+            const isTransfer = txn.type === TRANSACTION_TYPES.TRANSFER;
+            const isAdjustment = String(txn?.category) === 'Edit Adjustment' || (Array.isArray(txn?.tags) && txn.tags.includes('adjustment'));
+            const isEditable = !isTransfer && !isAdjustment;
+            return (
+              <Button
+                onClick={() => {
+                  if (!isEditable) return;
+                  // Normalize id upfront so the form reliably detects edit mode
+                  const norm = { ...txn, id: txn.id || txn._id };
+                  setEditingTransaction(norm);
+                  setIsModalOpen(true);
+                }}
+                variant="ghost"
+                size="sm"
+                className="text-sky-400 hover:bg-sky-500/10"
+                disabled={!isEditable}
+                title={
+                  isTransfer
+                    ? 'Editing transfers is not supported'
+                    : isAdjustment
+                      ? 'Editing adjustment logs is not allowed'
+                      : 'Edit'
+                }
+              >
+                Edit
+              </Button>
+            );
+          })()}
           <Button
             onClick={() => handleDelete(txn._id || txn.id)}
             variant="ghost"
