@@ -52,14 +52,16 @@ export default function ProfilePage() {
     if (user) {
       fetchProfile();
     }
+  }, [user, fetchWithAuth]);
 
-    // Cleanup function to revoke local object URL for unsaved preview
+  // Cleanup effect for local object URL used for unsaved avatar preview
+  useEffect(() => {
     return () => {
       if (avatarPreview) {
         URL.revokeObjectURL(avatarPreview);
       }
     };
-  }, [user]);
+  }, [avatarPreview]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
