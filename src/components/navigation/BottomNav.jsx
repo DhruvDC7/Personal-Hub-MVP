@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 const tabs = [
   {
@@ -58,17 +59,19 @@ const tabs = [
     href: "/feedback",
     label: "Feedback",
     icon: (active, feedbackOpen) => (
-      feedbackOpen ? (
-        // Close icon when feedback modal is open
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`h-5 w-5 ${active ? "opacity-100" : "opacity-80"}`} aria-hidden="true">
-          <path d="M18.3 5.71 12 12.01l-6.29-6.3-1.42 1.42L10.59 13.4l-6.3 6.29 1.42 1.42L12 14.83l6.29 6.29 1.42-1.41-6.3-6.3 6.3-6.29-1.41-1.42Z" />
-        </svg>
-      ) : (
-        // Feedback bubble icon when closed
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`h-5 w-5 ${active ? "opacity-100" : "opacity-80"}`} aria-hidden="true">
-          <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Zm-3 9H7V9h10v2Zm0-4H7V5h10v2Zm-6 8H7v-2h4v2Z" />
-        </svg>
-      )
+      <span className={`inline-flex items-center justify-center border ${active || feedbackOpen ? 'border-red-500' : 'border-red-500/70'} p-1 rounded-[4px]`} aria-hidden="true">
+        {feedbackOpen ? (
+          // Close icon when feedback modal is open
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`h-5 w-5 ${active ? "opacity-100" : "opacity-80"}`}>
+            <path d="M18.3 5.71 12 12.01l-6.29-6.3-1.42 1.42L10.59 13.4l-6.3 6.29 1.42 1.42L12 14.83l6.29 6.29 1.42-1.41-6.3-6.3 6.3-6.29-1.41-1.42Z" />
+          </svg>
+        ) : (
+          // Feedback bubble icon when closed
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`h-5 w-5 ${active ? "opacity-100" : "opacity-80"}`}>
+            <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Zm-3 9H7V9h10v2Zm0-4H7V5h10v2Zm-6 8H7v-2h4v2Z" />
+          </svg>
+        )}
+      </span>
     ),
   }
 ];
@@ -81,6 +84,8 @@ function isActive(pathname, href) {
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user } = useAuth();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const containerRef = useRef(null);
   const itemRefs = useRef({});
@@ -179,13 +184,19 @@ export default function BottomNav() {
               onClick={(e) => {
                 if (isFeedback) {
                   e.preventDefault();
-                  try {
-                    if (feedbackOpen) {
-                      window.dispatchEvent(new Event('close-feedback'));
-                    } else {
-                      window.dispatchEvent(new Event('open-feedback'));
-                    }
-                  } catch {}
+                  // Admins go to admin feedback page; users toggle modal
+                  if (user?.role === 'admin') {
+                    try { if (feedbackOpen) window.dispatchEvent(new Event('close-feedback')); } catch {}
+                    router.push('/admin/feedback');
+                  } else {
+                    try {
+                      if (feedbackOpen) {
+                        window.dispatchEvent(new Event('close-feedback'));
+                      } else {
+                        window.dispatchEvent(new Event('open-feedback'));
+                      }
+                    } catch {}
+                  }
                 } else if (feedbackOpen) {
                   // Close feedback if open when navigating to other tabs
                   try { window.dispatchEvent(new Event('close-feedback')); } catch {}
