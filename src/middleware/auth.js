@@ -45,7 +45,11 @@ export function requireAuth(req) {
         err.status = 401;
         throw err;
       }
-      return { userId: payload.userId };
+      return { 
+        userId: payload.userId,
+        username: payload.username || payload.name || null,
+        email: payload.email || null,
+      };
     } catch (error) {
       const err = new Error('Invalid or expired token');
       err.status = 401;

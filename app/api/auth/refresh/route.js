@@ -40,7 +40,12 @@ export async function POST(req) {
         tokenExp: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'N/A'
       });
       
-      const accessToken = signAccess({ userId: payload.userId });
+      const accessPayload = {
+        userId: payload.userId,
+        name: payload.name || null,
+        email: payload.email || null,
+      };
+      const accessToken = signAccess(accessPayload);
       const maxAge = parseExpires(process.env.JWT_EXPIRES_IN || '15m');
       const isProduction = process.env.NODE_ENV === 'production';
       
@@ -63,7 +68,12 @@ export async function POST(req) {
       const responseData = { 
         ok: true,
         expiresIn: maxAge,
-        tokenRefreshed: true
+        tokenRefreshed: true,
+        user: {
+          id: payload.userId,
+          name: payload.name || null,
+          email: payload.email || null,
+        }
       };
       
       await log(req, 'Token refresh successful', 'success', responseData);

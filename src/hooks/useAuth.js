@@ -16,10 +16,10 @@ const AuthContext = createContext({
   user: null,
   isAuthenticated: false,
   loading: true,
-  login: async () => {},
-  logout: async () => {},
-  refreshUser: async () => {},
-  refreshToken: async () => {}
+  login: async () => { },
+  logout: async () => { },
+  refreshUser: async () => { },
+  refreshToken: async () => { }
 });
 
 export function AuthProvider({ children }) {
@@ -52,32 +52,32 @@ export function AuthProvider({ children }) {
           const errorData = await response.json().catch(() => ({
             message: 'Failed to refresh token. Please log in again.'
           }));
-          
+
           const error = new Error(errorData.message || 'Failed to refresh token');
           error.status = response.status;
           throw error;
         }
 
         const data = await response.json();
-        
+
         // Update the user state with new token data if available
         if (isMounted.current && data.user) {
           setUser(data.user);
         }
-        
+
         resolve(data);
       } catch (error) {
-        
+
         // Only redirect if we're still mounted
         if (isMounted.current) {
           setUser(null);
-          showToast({ 
-            type: 'error', 
-            message: 'Your session has expired. Please log in again.' 
+          showToast({
+            type: 'error',
+            message: 'Your session has expired. Please log in again.'
           });
           router.push('/login');
         }
-        
+
         reject(error);
       } finally {
         refreshInProgress = false;
@@ -113,7 +113,7 @@ export function AuthProvider({ children }) {
       if (response.status === 401) {
         try {
           await refreshToken();
-          
+
           // Retry the original request with fresh token
           response = await fetch(url, {
             ...fetchOptions,
@@ -122,13 +122,13 @@ export function AuthProvider({ children }) {
               ...(options.headers || {}),
             },
           });
-          
+
         } catch (refreshError) {
           if (isMounted.current) {
             setUser(null);
-            showToast({ 
-              type: 'error', 
-              message: 'Your session has expired. Please log in again.' 
+            showToast({
+              type: 'error',
+              message: 'Your session has expired. Please log in again.'
             });
             router.push('/login');
           }
@@ -141,7 +141,7 @@ export function AuthProvider({ children }) {
         const errorData = await response.json().catch(() => ({
           message: response.statusText || 'Request failed'
         }));
-        
+
         const error = new Error(errorData.message || 'Request failed');
         error.status = response.status;
         error.data = errorData;
@@ -150,7 +150,7 @@ export function AuthProvider({ children }) {
 
       return response;
     } catch (error) {
-      
+
       // Only show error toast if it's not an authentication error
       if (error.status !== 401 && isMounted.current) {
         showToast({
@@ -158,19 +158,19 @@ export function AuthProvider({ children }) {
           message: error.message || 'Network error. Please try again.'
         });
       }
-      
+
       throw error;
     }
-  }, [refreshToken]);
+  }, [refreshToken, router]);
 
   const fetchUser = useCallback(async () => {
     if (!isMounted.current) {
       return false;
     }
-    
+
     try {
       setLoading(true);
-      
+
       // Fetch user data using relative path
       const response = await fetch('/api/me', {
         credentials: 'include',
@@ -195,7 +195,7 @@ export function AuthProvider({ children }) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
+
         if (isMounted.current) {
           setUser(null);
         }
@@ -203,10 +203,10 @@ export function AuthProvider({ children }) {
       }
 
       const data = await response.json();
-      
+
       if (isMounted.current) {
         setUser(data.user);
-        
+
         // Schedule token refresh before it expires
         if (data.expiresAt) {
           const expiresIn = new Date(data.expiresAt).getTime() - Date.now() - REFRESH_THRESHOLD;
@@ -220,7 +220,7 @@ export function AuthProvider({ children }) {
           }
         }
       }
-      
+
       return true;
     } catch (error) {
       if (isMounted.current) {
@@ -232,11 +232,11 @@ export function AuthProvider({ children }) {
         setLoading(false);
       }
     }
-  }, []);
+  }, [refreshToken]);
 
   useEffect(() => {
     isMounted.current = true;
-    
+
     // Initial fetch
     if (isMounted.current) {
       fetchUser();
@@ -247,17 +247,17 @@ export function AuthProvider({ children }) {
     };
   }, [fetchUser]);
 
-  const login = async (email, password) => {
+  const login = async (name, email, password) => {
     if (!isMounted.current) {
       return { success: false, error: 'Component unmounted' };
     }
 
     try {
       setLoading(true);
-      
+
       // Clear any existing user data
       setUser(null);
-      
+
       // Make the login request using relative path
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -266,7 +266,7 @@ export function AuthProvider({ children }) {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password }),
       });
 
       const data = await response.json().catch(() => ({
@@ -275,29 +275,29 @@ export function AuthProvider({ children }) {
 
       if (!response.ok) {
         const errorMessage = data.message || 'Login failed. Please try again.';
-        
+
         if (isMounted.current) {
-          showToast({ 
+          showToast({
             type: 'error',
             message: errorMessage
           });
         }
-        
-        return { 
-          success: false, 
+
+        return {
+          success: false,
           error: errorMessage
         };
       }
 
       // Login successful
-      
+
       if (isMounted.current) {
         setUser(data.user);
-        showToast({ 
-          type: 'success', 
-          message: 'Logged in successfully' 
+        showToast({
+          type: 'success',
+          message: 'Logged in successfully'
         });
-        
+
         // Schedule token refresh before it expires
         if (data.expiresAt) {
           const expiresIn = new Date(data.expiresAt).getTime() - Date.now() - REFRESH_THRESHOLD;
@@ -311,8 +311,8 @@ export function AuthProvider({ children }) {
           }
         }
       }
-      
-      return { 
+
+      return {
         success: true,
         user: data.user
       };
@@ -329,14 +329,14 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await fetchWithAuth(`${API_BASE_URL}/api/auth/logout`, { 
+      await fetchWithAuth(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST'
       });
       showToast({ type: 'success', message: 'Logged out successfully' });
     } catch (error) {
-      showToast({ 
-        type: 'error', 
-        message: error.message || 'Failed to log out. You may have been logged out already.' 
+      showToast({
+        type: 'error',
+        message: error.message || 'Failed to log out. You may have been logged out already.'
       });
     } finally {
       if (isMounted.current) {

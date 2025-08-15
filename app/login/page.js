@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 export default function LoginPage() {
   const router = useRouter();
   const { isAuthenticated, login } = useAuth();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -26,7 +27,7 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
-      const { success, error: loginError } = await login(email, password);
+      const { success, error: loginError } = await login(name, email, password);
       
       if (!success) {
         throw new Error(loginError || 'Authentication failed');
@@ -52,6 +53,19 @@ export default function LoginPage() {
       )}
       
       <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label htmlFor="name" className="block text-sm font-medium text-[var(--muted)] mb-2">
+            Name
+          </label>
+          <input
+            type="text"
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full px-4 py-3 bg-[var(--input)] border border-[var(--border)] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-colors"
+            required
+          />
+        </div>
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-[var(--muted)] mb-2">
             Email

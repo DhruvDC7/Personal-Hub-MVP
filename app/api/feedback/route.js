@@ -48,6 +48,7 @@ function createFeedbackDoc(payload, auth, aiResult) {
         user_id: auth.userId,
         user_name: auth.userName || 'Unknown',
         source: 'app',
+        status: 'pending',
         feedback_text: payload.feedback_text,
         rating: payload.rating || null,
         context: {

@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { useAvatar } from '@/hooks/useAvatar';
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, fetchWithAuth } = useAuth();
   const { avatarUrl, refreshAvatar, clearAvatarCache } = useAvatar(user);
   const [profile, setProfile] = useState({
     name: '',
@@ -30,7 +30,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const profileRes = await fetch('/api/me');
+        const profileRes = await fetchWithAuth('/api/me');
         if (profileRes.ok) {
           const data = await profileRes.json();
           setProfile(prev => ({
@@ -121,7 +121,7 @@ export default function ProfilePage() {
 
     setIsChanging(true);
     try {
-      const res = await fetch('/api/me/password', {
+      const res = await fetchWithAuth('/api/me/password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ oldPassword: pw.old, newPassword: pw.nw }),
@@ -147,7 +147,7 @@ export default function ProfilePage() {
 
     try {
       // Build requests independently so one failure doesn't block the other
-      const profilePromise = fetch('/api/me', {
+      const profilePromise = fetchWithAuth('/api/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -161,13 +161,13 @@ export default function ProfilePage() {
       if (avatar) {
         const formData = new FormData();
         formData.append('file', avatar);
-        avatarPromise = fetch('/api/me/avatar', {
+        avatarPromise = fetchWithAuth('/api/me/avatar', {
           method: 'POST',
           body: formData,
         });
       } else if (avatarPreview === '') {
         // Avatar removed
-        avatarPromise = fetch('/api/me/avatar', { method: 'DELETE' });
+        avatarPromise = fetchWithAuth('/api/me/avatar', { method: 'DELETE' });
       }
 
       const [profileResult, avatarResult] = await Promise.allSettled([
@@ -210,7 +210,7 @@ export default function ProfilePage() {
     // Reset form and exit edit mode
     setIsEditing(false);
     // Refetch profile data to discard changes
-    fetch('/api/me')
+    fetchWithAuth('/api/me')
       .then(res => res.json())
       .then(data => {
         setProfile(prev => ({

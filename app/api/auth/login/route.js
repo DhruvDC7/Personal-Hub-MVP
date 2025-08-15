@@ -12,6 +12,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const schema = Joi.object({
+  name: Joi.string().min(3).max(100).required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(), // min 6 for UX
 });
@@ -52,8 +53,9 @@ export async function POST(req) {
 
       const newUser = {
         email,
+        name: value.name.trim(),
         passwordHash: hashedPassword,
-        createdAt: now,
+          createdAt: now,
         updatedAt: now,
         lastLoginAt: now
       };
@@ -70,7 +72,11 @@ export async function POST(req) {
     }
     // 3) Sign tokens with user id (string)F
     const userId = user.id || user._id?.toString();
-    const payload = { userId };
+    const payload = { 
+      userId,
+      name: user.name || value.name || null,
+      email,
+    };
     const accessToken = signAccess(payload);
     const refreshToken = signRefresh(payload);
 
@@ -114,6 +120,7 @@ export async function POST(req) {
         user: {
           id: userId,
           email,
+          name: user.name || value.name || null,
           isNewUser
         }
       }),
