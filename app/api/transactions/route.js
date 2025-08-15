@@ -23,7 +23,7 @@ export async function GET(req) {
     const type = searchParams.get("type");
     const account = searchParams.get("account");
     const limit = parseInt(searchParams.get("limit")) || 0;
-    
+
     const query = { user_id: userId };
     if (month) {
       const start = dayjs(`${month}-01`).startOf("month").toDate();
@@ -31,7 +31,7 @@ export async function GET(req) {
       query.created_on = { $gte: start, $lte: end };
     }
     if (type) query.type = type;
-    
+
     if (account) {
       // Include single-account txns and transfers involving this account
       query.$or = [
@@ -46,10 +46,10 @@ export async function GET(req) {
       query,
       { sort: { created_on: -1 }, ...(limit ? { limit } : {}) }
     );
-    
+
     if (!status) throw new Error(message);
     return Response.json({ status: true, data });
-    
+
   } catch (e) {
     if (e.status === 401) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
@@ -63,12 +63,12 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const { error, value } = transactionSchema.validate(body, { abortEarly: false });
-    
+
     if (error) {
       await logs(req, `Validation error: ${error.message}`, 400, body);
       return new Response(errorObject(error.message, 400), { status: 400 });
     }
-    
+
     const { userId } = requireAuth(req);
     const now = new Date();
     const baseDoc = {
@@ -168,7 +168,7 @@ export async function POST(req) {
     let delta = 0;
     if (value.type === "expense") delta = -value.amount;
     if (value.type === "income") delta = value.amount;
-    
+
     if (delta !== 0) {
       await MongoClientUpdateOne(
         "accounts",
@@ -184,7 +184,7 @@ export async function POST(req) {
       { status: true, data: { id: doc.id, ...doc } },
       { status: 201 }
     );
-      
+
   } catch (e) {
     if (e.status === 401) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
@@ -201,7 +201,7 @@ export async function PUT(req) {
     // Step 1: Parse the incoming request body
     const body = await req.json();
     const { id, account_id, type, amount, currency, category, note, tags, attachment_ids } = body || {};
-  
+
     // Step 2: Check for required fields
     if (!id) return new Response(errorObject("Transaction ID is required", 400), { status: 400 });
 
@@ -220,7 +220,7 @@ export async function PUT(req) {
       "transactions",
       { _id: toObjectId(txId.toString()), user_id: userId }
     );
-    
+
     if (!existingFound) {
       return new Response(errorObject("Transaction not found", 404), { status: 404 });
     }
@@ -263,7 +263,7 @@ export async function PUT(req) {
       "accounts",
       { _id: toObjectId(newAccountId.toString()), user_id: userId }
     );
-    
+
     if (!accFound) {
       return new Response(errorObject("Account not found", 404), { status: 404 });
     }
@@ -305,7 +305,7 @@ export async function PUT(req) {
         )
       );
     }
-    
+
     // Adjust the balance for the new transaction amount if needed
     if (nextSign !== 0) {
       ops.push(
@@ -393,7 +393,7 @@ export async function PUT(req) {
       status: true,
       data: { id: txId, adjustment_created: chosenAccountId ? 1 : 0 }
     });
-      
+
   } catch (e) {
     // Step 14: Handle errors (unauthorized access or unexpected errors)
     if (e.status === 401) {
@@ -410,14 +410,14 @@ export async function DELETE(req) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    
+
     if (!id) {
       return new Response(errorObject("Transaction ID is required", 400), { status: 400 });
     }
 
     const { userId } = requireAuth(req);
     let txId;
-    
+
     try {
       txId = new ObjectId(String(id));
     } catch {
@@ -429,7 +429,7 @@ export async function DELETE(req) {
       "transactions",
       { _id: toObjectId(txId.toString()), user_id: userId }
     );
-    
+
     if (!existingStatus || !existing) {
       return new Response(errorObject("Transaction not found", 404), { status: 404 });
     }
@@ -480,14 +480,14 @@ export async function DELETE(req) {
       _id: toObjectId(txId.toString()),
       user_id: userId,
     });
-    
+
     if (!status) throw new Error(message);
 
-    return Response.json({ 
-      status: true, 
-      data: { id: txId } 
+    return Response.json({
+      status: true,
+      data: { id: txId }
     });
-      
+
   } catch (e) {
     if (e.status === 401) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });

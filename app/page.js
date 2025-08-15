@@ -355,18 +355,27 @@ function Dashboard() {
       {/* Balance + Donut */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card>
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
               <p className="text-sm text-slate-400">Net Worth</p>
-              <p className={`mt-2 text-4xl font-semibold ${netWorth.networth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {formatINR(netWorth.networth)}
-              </p>
+              <div className="mt-2 max-w-full">
+                <p
+                  className={`block text-3xl sm:text-4xl font-semibold truncate whitespace-nowrap ${netWorth.networth >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                  title={formatINR(netWorth.networth)}
+                >
+                  {formatINR(netWorth.networth)}
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-400">Accounts</p>
-              <p className="text-lg font-medium">{accountCount}</p>
-              <p className="text-xs text-slate-400 mt-2">Documents</p>
-              <p className="text-lg font-medium">{documentCount}</p>
+            <div className="w-full sm:w-auto shrink-0 grid grid-cols-2 sm:grid-cols-1 gap-x-6 gap-y-1 sm:text-right">
+              <Link href="/accounts" className="group block rounded-md hover:bg-slate-800/40 px-2 py-1 transition">
+                <p className="text-xs text-slate-400 group-hover:text-slate-300">Accounts</p>
+                <p className="text-lg font-medium">{accountCount}</p>
+              </Link>
+              <Link href="/documents" className="group block rounded-md hover:bg-slate-800/40 px-2 py-1 transition">
+                <p className="text-xs text-slate-400 group-hover:text-slate-300">Documents</p>
+                <p className="text-lg font-medium">{documentCount}</p>
+              </Link>
             </div>
           </div>
           <div className="mt-3">

@@ -40,6 +40,28 @@ const feedbackSchema = {
 };
 
 /**
+ * Create a structured feedback document
+ */
+function createFeedbackDoc(payload, auth, aiResult) {
+    const now = new Date().toISOString();
+    return {
+        user_id: auth.userId,
+        user_name: auth.userName || 'Unknown',
+        source: 'app',
+        feedback_text: payload.feedback_text,
+        rating: payload.rating || null,
+        context: {
+            path: payload.context?.path || null,
+            ua: payload.context?.ua || null,
+        },
+        ai: aiResult,
+        created_on: now,
+        updated_on: now,
+    };
+}
+
+
+/**
  * Process feedback text with AI to extract structured data
  */
 async function processFeedbackWithAI(feedbackText) {
@@ -159,65 +181,36 @@ function validateFeedback(payload) {
 export async function POST(req) {
     try {
         // 1. Authenticate user
-        const auth = requireAuth(req);
+        const auth = requireAuth(req); // Handles authentication and returns user data
 
         // 2. Parse and validate request body
         const payload = await req.json();
-        const validationErrors = validateFeedback(payload);
+        const validationErrors = validateFeedback(payload); // Can be done using Joi or Zod validation
         if (validationErrors.length > 0) {
-            return Response.json(
-                { error: 'Validation failed', details: validationErrors },
-                { status: 400 }
-            );
+            return Response.json({ error: 'Validation failed', details: validationErrors }, { status: 400 });
         }
 
         // 3. Process feedback with AI
         const aiResult = await processFeedbackWithAI(payload.feedback_text);
 
         // 4. Prepare feedback document
-        const now = new Date().toISOString();
-        const feedbackDoc = {
-            user_id: auth.userId,
-            user_name: auth.userName || 'Unknown',
-            source: 'app',
-            feedback_text: payload.feedback_text,
-            rating: payload.rating || null,
-            context: {
-                path: payload.context?.path || null,
-                ua: payload.context?.ua || null,
-            },
-            ai: {
-                summary: aiResult.summary,
-                sentiment: aiResult.sentiment,
-                topics: aiResult.topics,
-                priority: aiResult.priority,
-                action_items: aiResult.action_items,
-                raw_model_output: aiResult.raw_model_output,
-            },
-            created_on: now,
-            updated_on: now,
-        };
+        const feedbackDoc = createFeedbackDoc(payload, auth, aiResult);
 
         // 5. Save to database
-        const { status: insertStatus } = await MongoClientInsertOne(
-            'feedback',
-            feedbackDoc
-        );
+        const { status: insertStatus } = await MongoClientInsertOne('feedback', feedbackDoc);
 
         if (!insertStatus) {
             throw new Error('Failed to save feedback');
         }
 
         // 6. Return success response
-        return Response.json(
-            { message: 'Feedback taken' },
-            { status: 200 }
-        );
+        return Response.json({ message: 'Feedback submitted successfully' }, { status: 200 });
     } catch (error) {
         console.error('Error in POST /api/feedback:', error);
-        return handleApiError(error, 'Failed to submit feedback');
+        return handleApiError(error, 'Failed to submit feedback'); // Standardized error handler
     }
 }
+
 
 /**
  * GET /api/feedback - Get user's feedback history (last 20 items)
