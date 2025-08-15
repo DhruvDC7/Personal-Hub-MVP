@@ -88,7 +88,7 @@ function Dashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchWithAuth]);
 
   const handleGenerateReport = async () => {
     try {
@@ -392,7 +392,7 @@ function Dashboard() {
                   background: `conic-gradient(#ef4444 0% ${loanPct}%, #f59e0b ${loanPct}% ${loanPct + bankPct}%, #10b981 ${loanPct + bankPct}% 100%)`,
                 }}
               />
-              <div className="absolute inset-3 rounded-full bg-[var(--card)]" />
+              <div className="absolute inset-3 rounded-full bg-slate-800 ring-1 ring-slate-700/60" />
               <div className="absolute inset-0 flex items-center justify-center">
                 <button
                   type="button"
