@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { ObjectId } from 'mongodb';
-import { MongoClientFindOne, MongoClientUpdateOne, MongoClientInsertOne } from '@/helpers/mongo';
+import { MongoClientFindOne, MongoClientUpdateOne } from '@/helpers/mongo';
 import { signAccess, signRefresh, parseExpires } from '@/lib/jwt';
 import { serialize } from 'cookie'; // ✅ use named export
 
@@ -12,9 +12,9 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const schema = Joi.object({
-  name: Joi.string().min(3).max(100).required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(), // min 6 for UX
+  name: Joi.string().min(3).max(100).optional().allow('', null),
 });
 
 export async function POST(req) {
@@ -31,51 +31,32 @@ export async function POST(req) {
 
     const email = value.email.toLowerCase();
     let user;
-    let isNewUser = false;
 
     // 2) Try to find existing user
     const { found, data: existingUser } = await MongoClientFindOne('users', { email });
 
-    if (found && existingUser) {
-      // 2a) Verify password for existing user
-      const isPasswordValid = await bcrypt.compare(value.password, existingUser.passwordHash || '');
-      if (!isPasswordValid) {
-        return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-      user = existingUser;
-    } else {
-      // 2b) Create new user if not found
-      const hashedPassword = await bcrypt.hash(value.password, 10);
-      const now = dayjs().tz('Asia/Kolkata').toISOString();
-
-      const newUser = {
-        email,
-        name: value.name.trim(),
-        passwordHash: hashedPassword,
-          createdAt: now,
-        updatedAt: now,
-        lastLoginAt: now
-      };
-
-      const userData = await MongoClientInsertOne('users', newUser);
-      if (!userData.status || !userData.data) {
-        return new Response(JSON.stringify({ error: 'Failed to create user' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-      user = { ...newUser, _id: userData.id };
-      isNewUser = true;
+    if (!found || !existingUser) {
+      return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
+    // Verify password for existing user
+    const isPasswordValid = await bcrypt.compare(value.password, existingUser.passwordHash || '');
+    if (!isPasswordValid) {
+      return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    user = existingUser;
     // 3) Sign tokens with user id (string)F
     const userId = user.id || user._id?.toString();
     const payload = { 
       userId,
-      name: user.name || value.name || null,
+      name: user.name || null,
       email,
+      role: user.role || 'user',
     };
     const accessToken = signAccess(payload);
     const refreshToken = signRefresh(payload);
@@ -120,12 +101,12 @@ export async function POST(req) {
         user: {
           id: userId,
           email,
-          name: user.name || value.name || null,
-          isNewUser
+          name: user.name || null,
+          role: user.role || 'user', // added role field
         }
       }),
       {
-        status: isNewUser ? 201 : 200,
+        status: 200,
         headers: {
           'Content-Type': 'application/json',
           'Set-Cookie': setCookieHeader

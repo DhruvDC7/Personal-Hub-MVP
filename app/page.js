@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/Button';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { BANK_TYPE_SYNONYMS, LOAN_TYPE_SYNONYMS, INVESTMENT_TYPE_SYNONYMS } from '@/constants/types';
+// Admin feedback moved to dedicated page: app/admin/feedback/page.js
 
 function Dashboard() {
   const [netWorth, setNetWorth] = useState({ networth: 0, currency: 'INR' });
@@ -22,6 +23,7 @@ function Dashboard() {
   // Breakdown by account balances
   const [accountBreakdown, setAccountBreakdown] = useState({ bank: 0, loan: 0, investment: 0 });
   const [generatingReport, setGeneratingReport] = useState(false);
+  // Admin feedback UI moved to /admin/feedback
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -105,6 +107,7 @@ function Dashboard() {
           return String(n);
         }
       };
+      
 
       const html = `<!DOCTYPE html>
 <html lang="en">
@@ -477,6 +480,14 @@ function Dashboard() {
               <div className="mt-2 text-sm">Profile</div>
             </div>
           </Link>
+          {user?.role === 'admin' && (
+            <Link href="/admin/feedback" className="group">
+              <div className="rounded-xl bg-slate-800/60 hover:bg-slate-800 transition p-4 text-center">
+                <div className="mx-auto h-8 w-8 rounded-lg bg-emerald-600/20 text-emerald-300 grid place-items-center">🛠️</div>
+                <div className="mt-2 text-sm">Feedback (Admin)</div>
+              </div>
+            </Link>
+          )}
         </div>
       </Card>
 

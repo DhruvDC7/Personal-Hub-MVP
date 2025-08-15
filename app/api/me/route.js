@@ -10,9 +10,11 @@ export async function GET(req) {
   try {
     // 1. Authenticate user
     let userId;
+    let role = 'user';
     try {
       const auth = requireAuth(req);
       userId = auth.userId;
+      role = auth.role || 'user';
     } catch (error) {
       error.status = 401;
       return handleApiError(error, 'Authentication failed in GET /api/me');
@@ -37,7 +39,8 @@ export async function GET(req) {
           email: data.email,
           name: data.name || null,
           phone: data.phone || null,
-          address: data.address || null
+          address: data.address || null,
+          role: data.role || role || 'user'
         } 
       },
       { 
@@ -112,6 +115,7 @@ export async function PUT(req) {
           name: userDoc.name || null,
           phone: userDoc.phone || null,
           address: userDoc.address || null,
+          role: userDoc.role || role || 'user',
         },
         // Optionally include info about whether an update occurred
         modified: typeof data === 'number' ? data : undefined,

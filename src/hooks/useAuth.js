@@ -17,6 +17,7 @@ const AuthContext = createContext({
   isAuthenticated: false,
   loading: true,
   login: async () => { },
+  register: async () => { },
   logout: async () => { },
   refreshUser: async () => { },
   refreshToken: async () => { }
@@ -93,7 +94,6 @@ export function AuthProvider({ children }) {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-
     const fetchOptions = {
       ...options,
       credentials: 'include',
@@ -327,6 +327,55 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const register = async (name, email, password) => {
+    if (!isMounted.current) {
+      return { success: false, error: 'Component unmounted' };
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await response.json().catch(() => ({ message: 'Invalid server response' }));
+
+      if (!response.ok) {
+        const errorMessage = data.error || data.message || 'Sign up failed. Please try again.';
+        if (isMounted.current) {
+          showToast({ type: 'error', message: errorMessage });
+        }
+        return { success: false, error: errorMessage };
+      }
+
+      // After successful registration, automatically log the user in
+      const loginResult = await login(name, email, password);
+      if (!loginResult?.success) {
+        return { success: false, error: loginResult?.error || 'Login after signup failed' };
+      }
+
+      if (isMounted.current) {
+        showToast({ type: 'success', message: 'Account created successfully' });
+      }
+      return { success: true, user: loginResult.user };
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to sign up. Please try again.';
+      showToast({ type: 'error', message: errorMessage });
+      return { success: false, error: errorMessage };
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+      }
+    }
+  };
+
   const logout = async () => {
     try {
       await fetchWithAuth(`${API_BASE_URL}/api/auth/logout`, {
@@ -361,6 +410,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!user,
     loading,
     login,
+    register,
     logout,
     refreshUser,
     refreshToken, // Expose refreshToken for manual refreshes if needed

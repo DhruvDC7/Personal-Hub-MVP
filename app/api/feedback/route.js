@@ -1,4 +1,4 @@
-import { MongoClientInsertOne, MongoClientFind } from '@/helpers/mongo';
+import { MongoClientInsertOne, MongoClientFind, MongoClientUpdateOne } from '@/helpers/mongo';
 import { requireAuth } from '@/middleware/auth';
 import { handleApiError } from '@/lib/errorHandler';
 import { aiJSONPrompt } from '@/lib/ai';
@@ -59,6 +59,39 @@ function createFeedbackDoc(payload, auth, aiResult) {
         created_on: now,
         updated_on: now,
     };
+}
+
+/**
+ * PATCH /api/feedback - Admin updates feedback status
+ * Body: { id: string, status: 'pending'|'in_progress'|'resolved'|'dismissed'|'thanks' }
+ */
+export async function PATCH(req) {
+    try {
+        const auth = requireAuth(req);
+        if (auth.role !== 'admin') {
+            const err = new Error('Forbidden');
+            err.status = 403;
+            throw err;
+        }
+
+        const { id, status } = await req.json();
+        const allowed = new Set(['pending', 'in_progress', 'resolved', 'dismissed', 'thanks']);
+        if (!id || !allowed.has(String(status))) {
+            return Response.json({ error: 'Invalid id or status' }, { status: 400 });
+        }
+
+        const now = new Date().toISOString();
+        const { status: ok, data: modified } = await MongoClientUpdateOne('feedback', { _id: id }, { $set: { status, updated_on: now } });
+        if (!ok) {
+            const e = new Error('Failed to update feedback');
+            e.status = 500;
+            throw e;
+        }
+        return Response.json({ success: true, modified });
+    } catch (error) {
+        console.error('Error in PATCH /api/feedback:', error);
+        return handleApiError(error, 'Failed to update feedback');
+    }
 }
 
 
@@ -232,12 +265,38 @@ export async function GET(req) {
         // 1. Authenticate user
         const auth = requireAuth(req);
 
-        // 2. Build query
-        const query = { user_id: auth.userId };
+        // 2. Admin can view all feedback with optional filters
+        const { searchParams } = new URL(req.url);
+        const isAdmin = auth.role === 'admin';
+        const viewAll = isAdmin && (searchParams.get('admin') === '1' || searchParams.get('all') === '1');
+
+        const query = viewAll ? {} : { user_id: auth.userId };
+        if (viewAll) {
+            const statusFilter = searchParams.get('status');
+            if (statusFilter) {
+                query.status = statusFilter;
+            } else {
+                // Default admin view: only pending and in_progress
+                query.status = { $in: ['pending', 'in_progress'] };
+            }
+        }
+        const limit = viewAll ? Math.min(Number(searchParams.get('limit') || 50), 200) : 20;
         const options = {
             sort: { created_on: -1 }, // Most recent first
-            limit: 20,
-            projection: {
+            limit,
+            projection: viewAll ? {
+                _id: 1,
+                user_id: 1,
+                name: 1,
+                status: 1,
+                feedback_text: 1,
+                rating: 1,
+                'ai.summary': 1,
+                'ai.sentiment': 1,
+                'ai.priority': 1,
+                created_on: 1,
+                updated_on: 1,
+            } : {
                 _id: 1,
                 feedback_text: 1,
                 rating: 1,
@@ -249,11 +308,7 @@ export async function GET(req) {
         };
 
         // 3. Fetch feedback from database
-        const { status, data: feedback } = await MongoClientFind(
-            'feedback',
-            query,
-            options
-        );
+        const { status, data: feedback } = await MongoClientFind('feedback', query, options);
 
         if (!status) {
             throw new Error('Failed to fetch feedback');
@@ -262,6 +317,9 @@ export async function GET(req) {
         // 4. Format response
         const formattedFeedback = feedback.map((item) => ({
             id: item._id.toString(),
+            user_id: item.user_id,
+            name: item.name,
+            status: item.status,
             feedback_text: item.feedback_text,
             rating: item.rating,
             ai: item.ai ? {
@@ -270,6 +328,7 @@ export async function GET(req) {
                 priority: item.ai.priority,
             } : null,
             created_on: item.created_on,
+            updated_on: item.updated_on,
         }));
 
         // 5. Return response

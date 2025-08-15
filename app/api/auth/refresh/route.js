@@ -44,6 +44,7 @@ export async function POST(req) {
         userId: payload.userId,
         name: payload.name || null,
         email: payload.email || null,
+        role: payload.role || 'user',
       };
       const accessToken = signAccess(accessPayload);
       const maxAge = parseExpires(process.env.JWT_EXPIRES_IN || '15m');
@@ -73,6 +74,7 @@ export async function POST(req) {
           id: payload.userId,
           name: payload.name || null,
           email: payload.email || null,
+          role: payload.role || 'user',
         }
       };
       
