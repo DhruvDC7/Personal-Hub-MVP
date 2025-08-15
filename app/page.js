@@ -480,11 +480,18 @@ function Dashboard() {
               <div className="mt-2 text-sm">Profile</div>
             </div>
           </Link>
-          {user?.role === 'admin' && (
+          {user?.role === 'admin' ? (
             <Link href="/admin/feedback" className="group">
               <div className="rounded-xl bg-slate-800/60 hover:bg-slate-800 transition p-4 text-center">
                 <div className="mx-auto h-8 w-8 rounded-lg bg-emerald-600/20 text-emerald-300 grid place-items-center">🛠️</div>
                 <div className="mt-2 text-sm">Feedback (Admin)</div>
+              </div>
+            </Link>
+          ) : (
+            <Link href="/user/feedback" className="group">
+              <div className="rounded-xl bg-slate-800/60 hover:bg-slate-800 transition p-4 text-center">
+                <div className="mx-auto h-8 w-8 rounded-lg bg-rose-600/20 text-rose-300 grid place-items-center">💬</div>
+                <div className="mt-2 text-sm">Feedback</div>
               </div>
             </Link>
           )}

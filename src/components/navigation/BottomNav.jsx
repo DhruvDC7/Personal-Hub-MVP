@@ -60,17 +60,10 @@ const tabs = [
     label: "Feedback",
     icon: (active, feedbackOpen) => (
       <span className={`inline-flex items-center justify-center border ${active || feedbackOpen ? 'border-red-500' : 'border-red-500/70'} p-1 rounded-[4px]`} aria-hidden="true">
-        {feedbackOpen ? (
-          // Close icon when feedback modal is open
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`h-5 w-5 ${active ? "opacity-100" : "opacity-80"}`}>
-            <path d="M18.3 5.71 12 12.01l-6.29-6.3-1.42 1.42L10.59 13.4l-6.3 6.29 1.42 1.42L12 14.83l6.29 6.29 1.42-1.41-6.3-6.3 6.3-6.29-1.41-1.42Z" />
-          </svg>
-        ) : (
-          // Feedback bubble icon when closed
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`h-5 w-5 ${active ? "opacity-100" : "opacity-80"}`}>
-            <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Zm-3 9H7V9h10v2Zm0-4H7V5h10v2Zm-6 8H7v-2h4v2Z" />
-          </svg>
-        )}
+        {/* Warning triangle icon */}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`h-5 w-5 ${active ? "opacity-100" : "opacity-80"}`}>
+          <path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2V8h2v6Z" />
+        </svg>
       </span>
     ),
   }
