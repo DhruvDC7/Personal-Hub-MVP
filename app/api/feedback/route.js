@@ -91,7 +91,7 @@ Example output:
   "raw_model_output": "..."
 }`;
 
-        const result = await aiJSONPrompt(prompt, 'gemini-1.5-flash');
+        const result = await aiJSONPrompt(prompt);
 
         // Ensure we have all required fields with fallbacks
         return {
