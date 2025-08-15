@@ -47,7 +47,7 @@ export function requireAuth(req) {
       }
       return { 
         userId: payload.userId,
-        username: payload.username || payload.name || null,
+        name: payload.name || null,
         email: payload.email || null,
       };
     } catch (error) {

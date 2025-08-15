@@ -45,6 +45,9 @@ export default function LoginPage() {
       <h1 className="text-3xl font-bold mb-8 text-center text-white">
         Welcome to Personal Hub
       </h1>
+      <p className="text-xs text-[var(--muted)] mb-6 text-center">
+        <span className="text-red-500">*</span> indicates a mandatory field
+      </p>
       
       {error && (
         <div className="mb-6 p-4 bg-red-900/30 border border-red-500/50 text-red-200 rounded-lg">
@@ -55,7 +58,7 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-[var(--muted)] mb-2">
-            Name
+            Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -68,7 +71,7 @@ export default function LoginPage() {
         </div>
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-[var(--muted)] mb-2">
-            Email
+            Email <span className="text-red-500">*</span>
           </label>
           <input
             type="email"
@@ -82,7 +85,7 @@ export default function LoginPage() {
 
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-[var(--muted)] mb-2">
-            Password
+            Password <span className="text-red-500">*</span>
           </label>
           <input
             type="password"

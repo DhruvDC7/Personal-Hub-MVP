@@ -46,7 +46,7 @@ function createFeedbackDoc(payload, auth, aiResult) {
     const now = new Date().toISOString();
     return {
         user_id: auth.userId,
-        user_name: auth.userName || 'Unknown',
+        name: auth.name || 'Unknown',
         source: 'app',
         status: 'pending',
         feedback_text: payload.feedback_text,
@@ -186,6 +186,17 @@ export async function POST(req) {
 
         // 2. Parse and validate request body
         const payload = await req.json();
+
+        // Normalize optional fields (make star/rating truly optional)
+        if (payload && Object.prototype.hasOwnProperty.call(payload, 'rating')) {
+            // Treat empty string or null/undefined as "not provided"
+            if (payload.rating === '' || payload.rating === null || payload.rating === undefined) {
+                delete payload.rating;
+            } else if (typeof payload.rating === 'string') {
+                const n = Number(payload.rating);
+                if (!Number.isNaN(n)) payload.rating = n;
+            }
+        }
         const validationErrors = validateFeedback(payload); // Can be done using Joi or Zod validation
         if (validationErrors.length > 0) {
             return Response.json({ error: 'Validation failed', details: validationErrors }, { status: 400 });

@@ -36,7 +36,6 @@ export async function GET(req) {
           id: data._id?.toString(),
           email: data.email,
           name: data.name || null,
-          username: data.name || null,
           phone: data.phone || null,
           address: data.address || null
         } 
@@ -111,7 +110,6 @@ export async function PUT(req) {
           id: userDoc._id?.toString(),
           email: userDoc.email,
           name: userDoc.name || null,
-          username: userDoc.name || null,
           phone: userDoc.phone || null,
           address: userDoc.address || null,
         },

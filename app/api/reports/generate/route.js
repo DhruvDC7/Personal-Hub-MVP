@@ -124,7 +124,7 @@ export async function POST(req) {
       userId,
       user: user ? {
         id: user.id || user._id || userId,
-        name: user.name || user.fullName || user.username || undefined,
+        name: user.name || user.fullName || undefined,
         email: user.email || undefined,
         phone: user.phone || user.phoneNumber || undefined,
       } : { id: userId },
