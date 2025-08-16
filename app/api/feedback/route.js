@@ -298,6 +298,7 @@ export async function GET(req) {
                 updated_on: 1,
             } : {
                 _id: 1,
+                status: 1,
                 feedback_text: 1,
                 rating: 1,
                 'ai.summary': 1,

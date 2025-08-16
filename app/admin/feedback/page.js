@@ -112,11 +112,11 @@ function AdminFeedbackPageInner() {
         ) : loading ? (
           <div className="p-8 flex justify-center"><LoadingSpinner size="md" /></div>
         ) : (
-          <div className="space-y-3 max-h-[70vh] overflow-auto pr-1">
+          <div className="space-y-4 max-h-[70vh] overflow-auto pr-1">
             {items.map(f => (
               <button
                 key={f.id}
-                className={`w-full text-left p-4 rounded-lg bg-slate-800/60 hover:bg-slate-800 transition ${selected?.id === f.id ? 'ring-1 ring-slate-600' : ''}`}
+                className={`w-full text-left p-4 rounded-lg bg-slate-800/60 hover:bg-slate-800 transition focus:outline-none border ${selected?.id === f.id ? 'border-2 border-red-500 font-semibold' : 'border-transparent'}`}
                 onClick={() => { setSelected(f); setModalOpen(true); }}
               >
                 <div className="flex items-start justify-between gap-3">

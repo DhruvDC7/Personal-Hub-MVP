@@ -27,6 +27,24 @@ function UserFeedbackPageInner() {
     return `${dd}-${mm}-${yyyy}`;
   };
 
+  const statusClass = (s) => {
+    const k = String(s || 'pending').toLowerCase();
+    switch (k) {
+      case 'resolved':
+        return 'bg-green-500/20 text-green-300 border border-green-500/40';
+      case 'pending':
+        return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40';
+      case 'in_progress':
+        return 'bg-blue-500/20 text-blue-300 border border-blue-500/40';
+      case 'dismissed':
+        return 'bg-slate-500/20 text-slate-300 border border-slate-500/40';
+      case 'thanks':
+        return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+      default:
+        return 'bg-slate-700 text-slate-300 border border-slate-600/40';
+    }
+  };
+
   const load = async () => {
     if (!isUser) return;
     setLoading(true);
@@ -78,27 +96,37 @@ function UserFeedbackPageInner() {
         ) : loading ? (
           <div className="p-8 flex justify-center"><LoadingSpinner size="md" /></div>
         ) : (
-          <div className="space-y-3 max-h-[70vh] overflow-auto pr-1">
-            {items.map(f => (
-              <button
-                key={f.id}
-                className={`w-full text-left p-4 rounded-lg bg-slate-800/60 hover:bg-slate-800 transition ${selected?.id === f.id ? 'ring-1 ring-slate-600' : ''}`}
-                onClick={() => { setSelected(f); setModalOpen(true); }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="text-sm text-slate-200 flex-1 min-w-0">
-                    {typeof f.rating === 'number' && f.rating > 0 ? (
-                      <div className="mb-1 text-yellow-400">
-                        {Array.from({ length: 5 }, (_, i) => (
-                          <span key={i}>{i < f.rating ? '★' : '☆'}</span>
-                        ))}
-                      </div>
-                    ) : null}
-                    <div className="font-medium truncate">{f.ai?.summary || f.feedback_text?.slice(0,80) || 'Feedback'}</div>
-                    <div className="text-xs text-slate-400 truncate">Submitted on {f.created_on ? formatDate(f.created_on) : '—'}</div>
+          <div className="space-y-4 max-h-[70vh] overflow-auto pr-1">
+            {items.map((f, idx) => (
+              <>
+                <button
+                  key={f.id}
+                  className={`w-full text-left p-4 rounded-lg bg-slate-800/60 hover:bg-slate-800 transition focus:outline-none border ${selected?.id === f.id ? 'border-2 border-red-500 font-semibold' : 'border-transparent'}`}
+                  onClick={() => { setSelected(f); setModalOpen(true); }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-sm text-slate-200 flex-1 min-w-0">
+                      {typeof f.rating === 'number' && f.rating > 0 ? (
+                        <div className="mb-1 text-yellow-400">
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <span key={i}>{i < f.rating ? '★' : '☆'}</span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="font-medium truncate">{f.ai?.summary || f.feedback_text?.slice(0,80) || 'Feedback'}</div>
+                      <div className="text-xs text-slate-400 truncate">Submitted on {f.created_on ? formatDate(f.created_on) : '—'}</div>
+                    </div>
+                    <div className="pt-0.5 shrink-0">
+                      <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full capitalize ${statusClass(f.status)}`}>
+                        {(f.status || 'pending').replace('_', ' ')}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                {idx < items.length - 1 && (
+                  <div key={`${f.id}-sep`} className="h-px bg-slate-700/50 mx-1" />
+                )}
+              </>
             ))}
             {items.length === 0 && !loading && !error && (
               <div className="text-xs text-slate-400 py-6 text-center">You haven&apos;t submitted any feedback yet.</div>
