@@ -1,21 +1,22 @@
 'use client';
 
-import { useAuth } from '@/hooks/useAuth';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import DocumentUpload from '@/components/Forms/DocumentUpload';
-import { previewDocument, deleteDocument, updateDocumentTitle } from '@/lib/documents';
+import { previewDocument, deleteDocument, updateDocumentMeta } from '@/lib/documents';
 import { showToast } from '@/lib/ui';
 
 export default function DocumentsPage() {
-  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [editingFolder, setEditingFolder] = useState('');
+  const [isAddingNewFolderEdit, setIsAddingNewFolderEdit] = useState(false);
   const [query, setQuery] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState('All');
 
   const loadDocuments = async () => {
     setIsLoading(true);
@@ -35,13 +36,20 @@ export default function DocumentsPage() {
   const onStartEdit = (doc) => {
     setEditingId(doc.id);
     setEditingTitle(doc.title || doc.filename);
+    const existing = doc?.metadata?.category || doc?.metadata?.folder || '';
+    setEditingFolder(existing);
+    setIsAddingNewFolderEdit(existing ? !folders.includes(existing) : false);
   };
 
   // no-op: inner scroll reset removed
 
   const onSaveTitle = async () => {
     try {
-      await updateDocumentTitle(editingId, editingTitle);
+      if (isAddingNewFolderEdit && !editingFolder.trim()) {
+        showToast({ type: 'error', message: 'Please enter a folder name or select an existing one' });
+        return;
+      }
+      await updateDocumentMeta(editingId, { title: editingTitle, category: editingFolder });
       setEditingId(null);
       await loadDocuments();
     } catch {}
@@ -55,33 +63,72 @@ export default function DocumentsPage() {
   };
 
   const normalized = (s = '') => s.toLowerCase();
+  const folders = useMemo(() => {
+    const set = new Set(['All']);
+    for (const d of documents) {
+      const cat = d?.metadata?.category || d?.metadata?.folder;
+      if (typeof cat === 'string' && cat.trim()) set.add(cat.trim());
+    }
+    return Array.from(set);
+  }, [documents]);
+
+  const docMatchesFolder = (d) => {
+    if (selectedFolder === 'All') return true;
+    const cat = normalized(d?.metadata?.category || d?.metadata?.folder || '');
+    const sf = normalized(selectedFolder);
+    return cat && cat === sf;
+  };
+
   const filteredDocs = documents.filter((d) => {
+    // Folder filter
+    if (!docMatchesFolder(d)) return false;
+    // Query filter (auto as you type)
     if (!query) return true;
     const q = normalized(query);
-    const metaTitle = normalized(d?.metadata?.title || '');
+    const metaTitle = normalized(d?.metadata?.title || d?.title || d?.filename || '');
     return metaTitle.includes(q);
   });
 
   return (
     <div className="max-w-3xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto p-6 flex-1 overflow-hidden flex flex-col">
-      <div className="mb-6 md:mb-8 text-center md:text-left">
-        <h1 className="text-xl font-semibold text-slate-50">Documents</h1>
-        <p className="text-slate-400 text-sm">Upload, view and manage your documents</p>
-      </div>
 
       {/* Sticky Controls (Search + Upload) */}
       <div className="mb-4 bg-slate-800/95 backdrop-blur supports-[backdrop-filter]:bg-slate-800/80 border border-slate-700 rounded-2xl p-4 sticky top-0 z-30">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <h2 className="text-lg font-medium text-slate-50 text-center md:text-left">All Documents</h2>
-          <div className="flex w-full md:w-auto items-center gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium text-slate-50">All Documents</h2>
+            <Button onClick={() => setIsUploading(true)} variant="primary" className="text-sm shrink-0">Upload</Button>
+          </div>
+
+          {/* Folder chips */}
+          <div className="flex gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700 py-1">
+            {folders.map((f) => {
+              const active = f === selectedFolder;
+              return (
+                <button
+                  key={f}
+                  onClick={() => setSelectedFolder(f)}
+                  className={
+                    `px-3 py-1 rounded-full text-xs whitespace-nowrap border ` +
+                    (active
+                      ? 'bg-red-600 text-white border-red-500'
+                      : 'bg-red-900/40 text-red-200 border-red-700 hover:bg-red-900/60')
+                  }
+                >
+                  {f}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search input (auto filters as you type) */}
+          <div className="flex items-center gap-2">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search documents..."
-              className="min-w-0 basis-full sm:basis-auto flex-1 md:w-72 bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-3 py-2 placeholder-slate-400"
+              placeholder="Search documents... (auto)"
+              className="w-full md:w-96 bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-3 py-2 placeholder-slate-400"
             />
-            <Button onClick={() => setQuery((q) => q.trim())} variant="outline" className="text-sm shrink-0 w-full sm:w-auto">Search</Button>
-            <Button onClick={() => setIsUploading(true)} variant="primary" className="text-sm shrink-0 w-full sm:w-auto">Upload</Button>
           </div>
         </div>
       </div>
@@ -141,11 +188,42 @@ export default function DocumentsPage() {
                     <div className="h-10 w-10 rounded-lg bg-indigo-500/15 text-indigo-300 grid place-items-center">📄</div>
                     <div className="min-w-0">
                       {editingId === doc.id ? (
-                        <input
-                          value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          className="w-full bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-2 py-1"
-                        />
+                        <div className="space-y-2 w-full">
+                          <input
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            className="w-full bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-2 py-1"
+                            placeholder="Document title"
+                          />
+                          <select
+                            value={isAddingNewFolderEdit ? '__ADD_NEW__' : (editingFolder || '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '__ADD_NEW__') {
+                                setIsAddingNewFolderEdit(true);
+                                setEditingFolder('');
+                              } else {
+                                setIsAddingNewFolderEdit(false);
+                                setEditingFolder(val);
+                              }
+                            }}
+                            className="w-full bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-2 py-1"
+                          >
+                            <option value="">Select a folder</option>
+                            {folders.map((f) => (
+                              <option key={f} value={f}>{f}</option>
+                            ))}
+                            <option value="__ADD_NEW__">+ Add new folder…</option>
+                          </select>
+                          {isAddingNewFolderEdit && (
+                            <input
+                              value={editingFolder}
+                              onChange={(e) => setEditingFolder(e.target.value)}
+                              className="w-full bg-slate-700 border border-slate-600 rounded-md text-white text-sm px-2 py-1"
+                              placeholder="Enter new folder name"
+                            />
+                          )}
+                        </div>
                       ) : (
                         <p className="font-medium break-words md:truncate">{doc.title || doc.filename}</p>
                       )}
@@ -170,7 +248,7 @@ export default function DocumentsPage() {
                   ) : (
                     <div className="flex flex-wrap gap-2 md:justify-end md:w-40 lg:justify-start lg:w-auto">
                       <Button onClick={() => previewDocument(doc.id)} size="sm" variant="outline" className="shrink-0">Open</Button>
-                      <Button onClick={() => onStartEdit(doc)} size="sm" variant="outline" className="shrink-0">Rename</Button>
+                      <Button onClick={() => onStartEdit(doc)} size="sm" variant="outline" className="shrink-0">Edit</Button>
                       <Button onClick={() => onDelete(doc.id, doc.title)} size="sm" variant="danger" className="shrink-0">Delete</Button>
                     </div>
                   )}

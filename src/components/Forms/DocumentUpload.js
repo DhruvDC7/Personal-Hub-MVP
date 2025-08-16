@@ -1,17 +1,39 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, uploadFile } from '@/lib/fetcher';
 import { showToast } from '@/lib/ui';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function DocumentUpload({ onSuccess, onCancel, documentId }) {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
+  const [folder, setFolder] = useState('');
+  const [folders, setFolders] = useState([]);
+  const [isAddingNewFolder, setIsAddingNewFolder] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
   const router = useRouter();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    // Load existing folders from documents
+    (async () => {
+      try {
+        const res = await fetch('/api/documents');
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.data)) {
+          const set = new Set();
+          for (const d of data.data) {
+            const cat = d?.metadata?.category || d?.metadata?.folder;
+            if (typeof cat === 'string' && cat.trim()) set.add(cat.trim());
+          }
+          setFolders(Array.from(set));
+        }
+      } catch {}
+    })();
+  }, []);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -36,17 +58,21 @@ export default function DocumentUpload({ onSuccess, onCancel, documentId }) {
       return;
     }
 
+    if (isAddingNewFolder && !folder.trim()) {
+      showToast({ type: 'error', message: 'Please enter a folder name or select an existing one' });
+      return;
+    }
+
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
       const response = await fetch('/api/documents/upload', {
         method: 'POST',
         headers: {
           'x-filename': file.name,
           'x-title': title,
+          ...(folder && { 'x-folder': folder }),
+          ...(user && { 'x-user-id': user.id || user._id }),
           ...(documentId && { 'x-document-id': documentId }),
         },
         body: file,
@@ -135,6 +161,43 @@ export default function DocumentUpload({ onSuccess, onCancel, documentId }) {
           placeholder="Enter a title for this document"
           required
         />
+      </div>
+
+      <div>
+        <label htmlFor="folder" className="block text-sm font-medium text-[var(--muted)] mb-1">
+          Folder / Category
+        </label>
+        <select
+          id="folder-select"
+          value={isAddingNewFolder ? '__ADD_NEW__' : (folder || '')}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === '__ADD_NEW__') {
+              setIsAddingNewFolder(true);
+              setFolder('');
+            } else {
+              setIsAddingNewFolder(false);
+              setFolder(val);
+            }
+          }}
+          className="mt-1 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+        >
+          <option value="">Select a folder</option>
+          {folders.map((f) => (
+            <option key={f} value={f}>{f}</option>
+          ))}
+          <option value="__ADD_NEW__">+ Add new folder…</option>
+        </select>
+        {isAddingNewFolder && (
+          <input
+            type="text"
+            id="folder"
+            value={folder}
+            onChange={(e) => setFolder(e.target.value)}
+            className="mt-2 block w-full rounded-lg bg-[var(--input)] text-[var(--foreground)] border border-[var(--border)] py-2.5 px-3 focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent sm:text-sm transition-colors"
+            placeholder="Enter new folder name"
+          />
+        )}
       </div>
 
       <div className="flex justify-end space-x-3 pt-2">

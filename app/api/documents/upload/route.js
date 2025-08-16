@@ -6,13 +6,26 @@ import { Readable } from 'node:stream';
 import { once } from 'node:events';
 import { GridFSFindFileByIdWithBucket } from '../../../../src/helpers/mongo';
  // you already have this
+import { requireAuth } from '@/middleware/auth';
 
 export async function POST(request) {
   try {
+    // Require auth and get uploader userId
+    let userId;
+    try {
+      const auth = requireAuth(request);
+      userId = auth.userId;
+    } catch (error) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const contentType = request.headers.get('content-type') || 'application/octet-stream';
     const filename = request.headers.get('x-filename');
     const title = request.headers.get('x-title') || filename || 'untitled';
     const existingId = request.headers.get('x-document-id'); // if present -> replace
+    // uploaderId must come from auth, ignore any client-sent value
+    const uploaderId = userId || null;
+    const folder = request.headers.get('x-folder') || null; // folder/category name
 
     if (!filename) {
       return NextResponse.json({ error: 'x-filename header is required' }, { status: 400 });
@@ -35,6 +48,11 @@ export async function POST(request) {
       }
 
       existingFileDoc = found.data;
+      // Enforce ownership for replace
+      const ownerId = existingFileDoc?.metadata?.uploaderId;
+      if (!ownerId || ownerId !== uploaderId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
       // delete old file bytes (and files doc)
       await bucket.delete(_id);
     } else {
@@ -51,6 +69,8 @@ export async function POST(request) {
       title,
       contentType,
       uploadDate: new Date(),
+      ...(uploaderId ? { uploaderId } : {}),
+      ...(folder ? { category: folder } : {}),
     };
 
     // Open upload stream (same id if replacing; new id otherwise)

@@ -218,3 +218,35 @@ export async function updateDocumentTitle(documentId, title) {
     throw error;
   }
 }
+
+/**
+ * Updates a document's metadata (title and/or category)
+ * @param {string} documentId
+ * @param {{ title?: string, category?: string, folder?: string }} payload
+ */
+export async function updateDocumentMeta(documentId, payload) {
+  try {
+    const body = {};
+    if (typeof payload?.title === 'string') body.title = payload.title;
+    if (typeof payload?.category === 'string') body.category = payload.category;
+    if (typeof payload?.folder === 'string') body.folder = payload.folder; // alias supported by API
+
+    const response = await fetch(`/api/documents?id=${documentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to update document');
+    }
+
+    showToast({ type: 'success', message: 'Document updated successfully' });
+    return result;
+  } catch (error) {
+    showToast({ type: 'error', message: error.message || 'Failed to update document' });
+    throw error;
+  }
+}
