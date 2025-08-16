@@ -398,7 +398,7 @@ function Dashboard() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium text-slate-50">Breakdown</h3>
           </div>
-          <div className="mt-4 flex items-center gap-6">
+          <div className="mt-4 flex items-center gap-10">
             {/* Donut */}
             <div
               className="relative h-28 w-28 shrink-0"
@@ -423,7 +423,7 @@ function Dashboard() {
               </div>
             </div>
             {/* Legend */}
-            <div className="space-y-3">
+            <div className="space-y-3 ml-2 sm:ml-4">
               <div className="flex items-center gap-3">
                 <span className="h-3 w-3 rounded-full bg-red-500" />
                 <div>
