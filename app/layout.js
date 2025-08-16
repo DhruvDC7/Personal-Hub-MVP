@@ -1,6 +1,5 @@
 import './globals.css';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import { Toast } from '@/components/Toast';
 import { AuthProvider } from '@/hooks/useAuth';
 import FeedbackButton from '@/components/FeedbackButtonWrapper';
@@ -49,7 +48,6 @@ export default function RootLayout({ children }) {
             {children}
           </main>
           <BottomNav />
-          <Footer />
           <FeedbackButton />
           <Toast />
         </AuthProvider>
